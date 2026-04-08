@@ -9,6 +9,7 @@ import {
   CalendarDays,
   ClipboardList,
   Clock3,
+  FileText,
   LayoutDashboard,
   Menu,
   Settings,
@@ -32,6 +33,7 @@ const baseGroups = [
     items: [
       { href: "/dashboard/projects", label: "案件情報", icon: ClipboardList },
       { href: "/dashboard/stores", label: "イベント", icon: Store },
+      { href: "/dashboard/billing", label: "請求・見積", icon: FileText },
       { href: "/dashboard/masters", label: "マスタ", icon: Building2 },
     ],
   },
