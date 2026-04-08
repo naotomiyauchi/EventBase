@@ -1,36 +1,35 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 携帯イベント管理（初期版）
 
-## Getting Started
+Next.js + Supabase + Tailwind/shadcn で動く案件・現場・スタッフの土台です。PWA 用の `manifest.json` を同梱しています。
 
-First, run the development server:
+## セットアップ
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+cp .env.example .env.local
+# .env.local に Supabase の URL と anon key を記入
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+1. [Supabase](https://supabase.com) でプロジェクトを作成する。
+2. SQL Editor で `supabase/migrations/` 内の SQL を **上から順に** 実行する（`initial` → `staff_module` → `staff_profile_extended`）。
+3. Authentication で Email プロバイダを有効にし、必要ならサイト URL を設定する。
+4. `npm run dev` で http://localhost:3000 を開く。
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+`.env.local` が空のままではログインできず、ダッシュボードはデモ表示のみです（データは保存されません）。
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## スクリプト
 
-## Learn More
+| コマンド | 説明 |
+|----------|------|
+| `npm run dev` | 開発サーバー |
+| `npm run build` | 本番ビルド |
+| `npm run start` | 本番起動 |
+| `npm run lint` | ESLint |
 
-To learn more about Next.js, take a look at the following resources:
+## 初期版の範囲
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- キャリア（シード）・代理店・現場マスタ・案件（ステータス）・**スタッフ**（プリセット＋自由入力スキル、生年月日からの**年齢自動計算**、プロフィールの **Excel / PDF 出力**、NG 現場／出禁、一覧検索・詳細編集・削除）
+- 案件へのファイルアップロード（Storage バケット `project-files`）
+- メール / パスワード認証、モバイル向けボトムナビ
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+今後の拡張用に、勤怠・LINE・AI・請求 PDF などは未実装です。
