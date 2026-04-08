@@ -183,7 +183,7 @@ export function StoresPageClient({
       <div className="flex items-center justify-between gap-2">
         <h2 className="text-sm font-medium text-muted-foreground">登録済み</h2>
         <Button onClick={() => setCreateOpen(true)} disabled={!canMutate}>
-          現場を追加
+          イベントを追加
         </Button>
       </div>
 
@@ -251,7 +251,7 @@ export function StoresPageClient({
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>現場を追加</DialogTitle>
+            <DialogTitle>イベントを追加</DialogTitle>
             <DialogDescription>
               代理店を選択して店舗情報を入力します。
             </DialogDescription>
@@ -270,11 +270,11 @@ export function StoresPageClient({
       <Dialog open={detailOpen} onOpenChange={setDetailOpen}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>現場詳細</DialogTitle>
-            <DialogDescription>登録済みの現場情報です。</DialogDescription>
+            <DialogTitle>イベント詳細</DialogTitle>
+            <DialogDescription>登録済みのイベント情報です。</DialogDescription>
           </DialogHeader>
           {!selected ? (
-            <p className="text-sm text-muted-foreground">現場が選択されていません。</p>
+            <p className="text-sm text-muted-foreground">イベントが選択されていません。</p>
           ) : (
             <div className="space-y-3 text-sm">
               <div className="rounded-lg border p-3">
@@ -327,11 +327,11 @@ export function StoresPageClient({
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>現場を編集</DialogTitle>
+            <DialogTitle>イベントを編集</DialogTitle>
             <DialogDescription>店舗情報を更新します。</DialogDescription>
           </DialogHeader>
           {!selected ? (
-            <p className="text-sm text-muted-foreground">現場が選択されていません。</p>
+            <p className="text-sm text-muted-foreground">イベントが選択されていません。</p>
           ) : (
             <form action={updateStore} className="space-y-4">
               <input type="hidden" name="id" value={selected.id} />
@@ -355,11 +355,11 @@ export function StoresPageClient({
           <DialogHeader>
             <DialogTitle>削除の確認</DialogTitle>
             <DialogDescription>
-              現場を削除します。この操作は元に戻せません。
+              イベントを削除します。この操作は元に戻せません。
             </DialogDescription>
           </DialogHeader>
           {!selected ? (
-            <p className="text-sm text-muted-foreground">現場が選択されていません。</p>
+            <p className="text-sm text-muted-foreground">イベントが選択されていません。</p>
           ) : (
             <form action={deleteStore} className="space-y-3">
               <input type="hidden" name="id" value={selected.id} />

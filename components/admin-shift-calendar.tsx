@@ -18,7 +18,7 @@ export type AdminShiftCalendarShift = {
   siteAddress: string | null;
   unitPrice: number | null;
   requiredHeadcount: number | null;
-  checkedIn: boolean;
+  attendanceStatus: "not_checked_in" | "checked_in" | "checked_out";
 };
 
 export type AdminShiftCalendarDay = {
@@ -90,9 +90,11 @@ export function AdminShiftCalendar({
                     key={sft.id}
                     className={[
                       "truncate rounded px-1 py-0.5 text-[10px]",
-                      sft.checkedIn
-                        ? "bg-emerald-100 text-emerald-900"
-                        : "bg-rose-100 text-rose-900",
+                      sft.attendanceStatus === "checked_out"
+                        ? "bg-zinc-900 text-zinc-100"
+                        : sft.attendanceStatus === "checked_in"
+                          ? "bg-emerald-100 text-emerald-900"
+                          : "bg-rose-100 text-rose-900",
                     ].join(" ")}
                   >
                     {sft.staffName} / {sft.projectTitle} / {sft.time}
@@ -133,16 +135,29 @@ export function AdminShiftCalendar({
                   onClick={() => openProject(s)}
                   className={[
                     "w-full rounded-lg border p-3 text-left hover:bg-accent/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                    s.checkedIn
-                      ? "bg-emerald-50/60"
-                      : "bg-rose-50/60",
+                    s.attendanceStatus === "checked_out"
+                      ? "bg-zinc-900/90 text-zinc-100"
+                      : s.attendanceStatus === "checked_in"
+                        ? "bg-emerald-50/60"
+                        : "bg-rose-50/60",
                   ].join(" ")}
                 >
                   <p className="text-sm font-medium">
                     {s.staffName} / {s.projectTitle} / {s.time}
                   </p>
-                  <p className="text-xs text-muted-foreground">
-                    {s.checkedIn ? "出勤済み" : "未出勤"}
+                  <p
+                    className={[
+                      "text-xs",
+                      s.attendanceStatus === "checked_out"
+                        ? "text-zinc-300"
+                        : "text-muted-foreground",
+                    ].join(" ")}
+                  >
+                    {s.attendanceStatus === "checked_out"
+                      ? "退勤済み"
+                      : s.attendanceStatus === "checked_in"
+                        ? "出勤済み"
+                        : "未出勤"}
                   </p>
                   {s.siteAddress && (
                     <p className="text-xs text-muted-foreground">

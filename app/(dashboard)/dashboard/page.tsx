@@ -72,7 +72,7 @@ export default async function DashboardHomePage({
         siteAddress: string | null;
         unitPrice: number | null;
         requiredHeadcount: number | null;
-        checkedIn: boolean;
+        attendanceStatus: "not_checked_in" | "checked_in" | "checked_out";
       }[];
     }[];
   } | null = null;
@@ -310,7 +310,7 @@ export default async function DashboardHomePage({
         shiftIds.length > 0
           ? supabase
               .from("shift_attendance")
-              .select("shift_id, checkin_at")
+              .select("shift_id, checkin_at, checkout_at")
               .in("shift_id", shiftIds)
           : Promise.resolve({ data: [] }),
       ]);
@@ -340,9 +340,20 @@ export default async function DashboardHomePage({
         ])
       );
       const attendanceMap = new Map(
-        ((attendanceRows ?? []) as { shift_id: string; checkin_at: string | null }[]).map(
-          (a) => [a.shift_id, Boolean(a.checkin_at)] as const
-        )
+        (
+          (attendanceRows ?? []) as {
+            shift_id: string;
+            checkin_at: string | null;
+            checkout_at: string | null;
+          }[]
+        ).map((a) => [
+          a.shift_id,
+          a.checkout_at
+            ? "checked_out"
+            : a.checkin_at
+              ? "checked_in"
+              : "not_checked_in",
+        ] as const)
       );
       const byDay = new Map<number, { id: string; time: string; projectTitle: string; staffName: string }[]>();
       const byDayWithAddress = new Map<
@@ -356,7 +367,7 @@ export default async function DashboardHomePage({
           siteAddress: string | null;
           unitPrice: number | null;
           requiredHeadcount: number | null;
-          checkedIn: boolean;
+          attendanceStatus: "not_checked_in" | "checked_in" | "checked_out";
         }[]
       >();
       for (const sft of shifts) {
@@ -378,7 +389,7 @@ export default async function DashboardHomePage({
           siteAddress: pj?.siteAddress ?? null,
           unitPrice: pj?.unitPrice ?? null,
           requiredHeadcount: pj?.requiredHeadcount ?? null,
-          checkedIn: attendanceMap.get(sft.id) ?? false,
+          attendanceStatus: attendanceMap.get(sft.id) ?? "not_checked_in",
         });
         byDayWithAddress.set(jstDay, arr);
       }
@@ -420,7 +431,7 @@ export default async function DashboardHomePage({
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">現場マスタ</CardTitle>
+            <CardTitle className="text-sm font-medium">イベントマスタ</CardTitle>
             <Store className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>

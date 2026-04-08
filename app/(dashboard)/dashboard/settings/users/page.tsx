@@ -64,7 +64,7 @@ export default async function SettingsUsersPage({
           <div className="space-y-1.5">
             <CardTitle className="text-base">スタッフ名簿</CardTitle>
             <CardDescription>
-              プロフィール・職務経歴・NG 現場・ログイン権限・パスワード再設定・出力は詳細から。スキルはダッシュボードの「スタッフ」からのみ変更できます。
+              プロフィール・職務経歴・NG イベント・ログイン権限・パスワード再設定・出力は詳細から。スキルはダッシュボードの「スタッフ」からのみ変更できます。
             </CardDescription>
           </div>
           {serviceOk ? (

@@ -31,7 +31,7 @@ const baseGroups = [
     label: "案件",
     items: [
       { href: "/dashboard/projects", label: "案件情報", icon: ClipboardList },
-      { href: "/dashboard/stores", label: "現場", icon: Store },
+      { href: "/dashboard/stores", label: "イベント", icon: Store },
       { href: "/dashboard/masters", label: "マスタ", icon: Building2 },
     ],
   },

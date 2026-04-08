@@ -37,6 +37,11 @@ function dt(s: string | null | undefined) {
   });
 }
 
+function firstRel<T>(v: T[] | T | null | undefined): T | null {
+  if (!v) return null;
+  return Array.isArray(v) ? (v[0] ?? null) : v;
+}
+
 export default async function AttendancePage({
   searchParams,
 }: {
@@ -172,10 +177,10 @@ export default async function AttendancePage({
       ) : (
         <div className="space-y-4">
           {rows.map((r) => {
-            const project = r.projects?.[0] ?? null;
+            const project = firstRel(r.projects);
             const store = project?.stores?.[0] ?? null;
-            const att = r.shift_attendance?.[0];
-            const result = r.shift_results?.[0];
+            const att = firstRel(r.shift_attendance);
+            const result = firstRel(r.shift_results);
             const hasCheckin = Boolean(att?.checkin_at);
             const hasCheckout = Boolean(att?.checkout_at);
             const expenseMap = new Map(
@@ -199,7 +204,7 @@ export default async function AttendancePage({
                     </div>
                     <div className="grid gap-1 text-xs text-muted-foreground">
                       <p>
-                        現場:{" "}
+                        イベント:{" "}
                         {store?.name
                           ? `${store.name}${store.address ? ` / ${store.address}` : ""}`
                           : "—"}
@@ -223,36 +228,45 @@ export default async function AttendancePage({
                   <div className="text-xs text-muted-foreground">
                     出勤: {dt(att?.checkin_at)} / 退勤: {dt(att?.checkout_at)}
                   </div>
+                  <div className="text-xs">
+                    <span className="text-muted-foreground">出勤状況: </span>
+                    <span
+                      className={
+                        hasCheckout
+                          ? "text-zinc-700 dark:text-zinc-300"
+                          : hasCheckin
+                            ? "text-emerald-700 dark:text-emerald-300"
+                            : "text-rose-700 dark:text-rose-300"
+                      }
+                    >
+                      {hasCheckout ? "退勤済み" : hasCheckin ? "出勤中" : "未出勤"}
+                    </span>
+                  </div>
 
                   {!hasCheckin && (
-                    <div className="space-y-2">
-                      <form action={checkInShiftAction}>
-                        <input type="hidden" name="shift_id" value={r.id} />
-                        <input type="hidden" name="checkin_lat" />
-                        <input type="hidden" name="checkin_lng" />
-                        <LocationSubmitButton
-                          label="出勤打刻（位置情報あり）"
-                          latFieldName="checkin_lat"
-                          lngFieldName="checkin_lng"
-                        />
-                      </form>
-                      <form action={checkInShiftAction}>
-                        <input type="hidden" name="shift_id" value={r.id} />
-                        <Button type="submit" variant="outline" className="w-full">
-                          出勤打刻（位置情報なし）
-                        </Button>
-                      </form>
-                      <p className="text-xs text-muted-foreground">
-                        現場の緯度経度が設定されている場合は位置情報ありで打刻してください。
-                      </p>
-                    </div>
+                    <form action={checkInShiftAction}>
+                      <input type="hidden" name="shift_id" value={r.id} />
+                      <input type="hidden" name="checkin_lat" />
+                      <input type="hidden" name="checkin_lng" />
+                      <LocationSubmitButton
+                        label="出勤"
+                        latFieldName="checkin_lat"
+                        lngFieldName="checkin_lng"
+                        size="lg"
+                        className="w-full text-base"
+                      />
+                    </form>
                   )}
 
-                  {hasCheckin && !hasCheckout && (
+                  {!hasCheckout && (
                     <form action={checkoutShiftWithReportAction} className="space-y-4">
                       <input type="hidden" name="shift_id" value={r.id} />
                       <input type="hidden" name="checkout_lat" />
                       <input type="hidden" name="checkout_lng" />
+
+                      <Button type="submit" size="lg" className="w-full text-base">
+                        退勤
+                      </Button>
 
                       <div className="grid gap-3 sm:grid-cols-3">
                         <div className="space-y-2">
@@ -313,20 +327,9 @@ export default async function AttendancePage({
                         />
                       </div>
 
-                      <div className="space-y-2">
-                        <LocationSubmitButton
-                          label="退勤 + 実績報告（位置情報あり）"
-                          latFieldName="checkout_lat"
-                          lngFieldName="checkout_lng"
-                          variant="default"
-                        />
-                        <Button type="submit" variant="outline" className="w-full">
-                          退勤 + 実績報告（位置情報なし）
-                        </Button>
-                        <p className="text-xs text-muted-foreground">
-                          経費入力時はレシートURLが必須です。
-                        </p>
-                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        経費入力時はレシートURLが必須です。
+                      </p>
                     </form>
                   )}
 

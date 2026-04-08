@@ -57,7 +57,7 @@ export default async function StoresPage({
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-xl font-semibold tracking-tight">現場マスタ</h1>
+        <h1 className="text-xl font-semibold tracking-tight">イベントマスタ</h1>
         <p className="text-sm text-muted-foreground">
           店舗の住所・入館ルール・担当連絡先を蓄積します。
         </p>
@@ -65,17 +65,17 @@ export default async function StoresPage({
 
       {sp.created && (
         <p className="text-sm text-green-600 dark:text-green-400">
-          現場を登録しました。
+          イベントを登録しました。
         </p>
       )}
       {sp.updated && (
         <p className="text-sm text-green-600 dark:text-green-400">
-          現場を更新しました。
+          イベントを更新しました。
         </p>
       )}
       {sp.deleted && (
         <p className="text-sm text-green-600 dark:text-green-400">
-          現場を削除しました。
+          イベントを削除しました。
         </p>
       )}
       {sp.error && (

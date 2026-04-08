@@ -100,7 +100,7 @@ export default async function StaffDetailPage({
         </Link>
         <h1 className="text-xl font-semibold tracking-tight">{staff.name}</h1>
         <p className="text-sm text-muted-foreground">
-          スキルはここでのみ変更できます。プロフィール・NG 現場・権限は「設定」→「スタッフ名簿」の詳細から編集します。
+          スキルはここでのみ変更できます。プロフィール・NG イベント・権限は「設定」→「スタッフ名簿」の詳細から編集します。
         </p>
         {showSettingsStaffLink && (
           <p>

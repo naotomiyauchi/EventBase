@@ -222,18 +222,18 @@ export default async function SettingsStaffDetailPage({
         </Link>
         <h1 className="text-xl font-semibold tracking-tight">{staff.name}</h1>
         <p className="text-sm text-muted-foreground">
-          プロフィール・職務経歴・NG 現場・出力を編集できます。スキルはダッシュボードの「スタッフ」からのみ変更できます。
+          プロフィール・職務経歴・NG イベント・出力を編集できます。スキルはダッシュボードの「スタッフ」からのみ変更できます。
         </p>
       </div>
 
       {sp.ng_added && (
         <p className="text-sm text-green-600 dark:text-green-400">
-          NG現場を追加しました。
+          NGイベントを追加しました。
         </p>
       )}
       {sp.ng_removed && (
         <p className="text-sm text-green-600 dark:text-green-400">
-          NG現場を解除しました。
+          NGイベントを解除しました。
         </p>
       )}
       {sp.updated && (
@@ -384,7 +384,7 @@ export default async function SettingsStaffDetailPage({
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">NG現場（出禁）</CardTitle>
+          <CardTitle className="text-base">NGイベント（出禁）</CardTitle>
           <CardDescription>
             マッチング時に除外する店舗。理由を残して運用できます。
           </CardDescription>
@@ -462,7 +462,7 @@ export default async function SettingsStaffDetailPage({
             </form>
           ) : (
             <p className="text-xs text-muted-foreground">
-              追加できる店舗がありません（未登録の店舗は「現場」マスタから登録してください）。
+              追加できる店舗がありません（未登録の店舗は「イベント」マスタから登録してください）。
             </p>
           )}
         </CardContent>

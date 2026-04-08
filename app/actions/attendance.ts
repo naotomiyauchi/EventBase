@@ -76,11 +76,11 @@ export async function checkInShiftAction(formData: FormData) {
   const site = (shift.projects as { site_lat: number | null; site_lng: number | null }[] | null)?.[0];
   if (site?.site_lat != null && site?.site_lng != null) {
     if (checkinLat == null || checkinLng == null) {
-      redirect(`${ATTENDANCE_PATH}?error=${encodeURIComponent("位置情報が必要です。現場付近で再実行してください")}`);
+      redirect(`${ATTENDANCE_PATH}?error=${encodeURIComponent("位置情報が必要です。イベント会場付近で再実行してください")}`);
     }
     const d = distanceMeters(checkinLat, checkinLng, Number(site.site_lat), Number(site.site_lng));
     if (d > 100) {
-      redirect(`${ATTENDANCE_PATH}?error=${encodeURIComponent(`現場から離れています（約${Math.round(d)}m）。100m以内で打刻してください`)}`);
+      redirect(`${ATTENDANCE_PATH}?error=${encodeURIComponent(`イベント会場から離れています（約${Math.round(d)}m）。100m以内で打刻してください`)}`);
     }
   }
   const now = new Date().toISOString();

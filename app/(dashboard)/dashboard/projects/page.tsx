@@ -72,7 +72,7 @@ export default async function ProjectsPage({
         <div>
           <h1 className="text-xl font-semibold tracking-tight">案件</h1>
           <p className="text-sm text-muted-foreground">
-            ステータスと現場を紐付けて管理します。
+            ステータスとイベントを紐付けて管理します。
           </p>
         </div>
       </div>
@@ -97,7 +97,7 @@ export default async function ProjectsPage({
               <Input id="title" name="title" required placeholder="例: 〇〇店 春のキャンペーン" />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="store_id">現場（店舗）</Label>
+              <Label htmlFor="store_id">イベント（店舗）</Label>
               <select
                 id="store_id"
                 name="store_id"

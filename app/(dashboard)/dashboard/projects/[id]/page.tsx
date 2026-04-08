@@ -147,7 +147,7 @@ export default async function ProjectDetailPage({
                 id="status"
                 name="status"
                 defaultValue={status}
-                className="flex h-9 min-w-[12rem] rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]"
+                className="flex h-9 min-w-48 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]"
               >
                 {PROJECT_STATUS_ORDER.map((s) => (
                   <option key={s} value={s}>
@@ -164,7 +164,7 @@ export default async function ProjectDetailPage({
       {st && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">現場</CardTitle>
+            <CardTitle className="text-base">イベント</CardTitle>
             <CardDescription>
               {st.agencies?.carriers?.name} {st.agencies?.name} / {st.name}
             </CardDescription>
@@ -198,7 +198,7 @@ export default async function ProjectDetailPage({
               href="/dashboard/stores"
               className="mt-2 inline-flex h-7 items-center justify-center rounded-[min(var(--radius-md),12px)] border border-border bg-background px-2.5 text-[0.8rem] font-medium hover:bg-muted"
             >
-              現場マスタ一覧
+              イベントマスタ一覧
             </Link>
           </CardContent>
         </Card>
