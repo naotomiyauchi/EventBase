@@ -60,6 +60,8 @@ type Props = {
   tenantBranding?: TenantBranding | null;
   /** 機能フラグ: 請求・見積ナビを表示 */
   featureBilling?: boolean;
+  /** anfra.jp 等 — 背景を黒ベースにして顧客ドメインと差別化 */
+  anfraDarkShell?: boolean;
 };
 
 export function AppShell({
@@ -69,6 +71,7 @@ export function AppShell({
   showSettingsNav,
   tenantBranding,
   featureBilling = true,
+  anfraDarkShell = false,
 }: Props) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = React.useState(false);
@@ -126,9 +129,13 @@ export function AppShell({
         onClick={onClick}
         className={cn(
           "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
-          active
-            ? "bg-accent text-accent-foreground"
-            : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
+          anfraDarkShell
+            ? active
+              ? "bg-zinc-800 text-white"
+              : "text-zinc-400 hover:bg-zinc-800/70 hover:text-zinc-100"
+            : active
+              ? "bg-accent text-accent-foreground"
+              : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
         )}
       >
         <Icon className="h-4 w-4 shrink-0" />
@@ -141,11 +148,27 @@ export function AppShell({
 
   return (
     <div
-      className="flex min-h-svh flex-col md:flex-row"
+      className={cn(
+        "flex min-h-svh flex-col md:flex-row",
+        /* dark: トークンでカード・ページも黒基調に */
+        anfraDarkShell && "bg-black text-zinc-100 dark"
+      )}
       style={tenantPrimaryCssVars(tenantBranding ?? {})}
     >
-      <aside className="hidden w-56 shrink-0 border-r bg-card md:block">
-        <div className="flex h-14 items-center gap-2 border-b px-4">
+      <aside
+        className={cn(
+          "hidden w-56 shrink-0 border-r md:block",
+          anfraDarkShell
+            ? "border-zinc-800 bg-zinc-950"
+            : "bg-card"
+        )}
+      >
+        <div
+          className={cn(
+            "flex h-14 items-center gap-2 border-b px-4",
+            anfraDarkShell && "border-zinc-800"
+          )}
+        >
           <TenantLogo logoUrl={logoUrl} width={44} height={44} className="rounded" />
         </div>
         <div className="flex h-[calc(100svh-3.5rem)] flex-col">
@@ -153,7 +176,12 @@ export function AppShell({
             {groups.map((g) => (
               <div key={g.key} className="space-y-1">
                 {g.label && (
-                  <p className="px-3 pt-2 text-xs font-medium text-muted-foreground">
+                  <p
+                    className={cn(
+                      "px-3 pt-2 text-xs font-medium",
+                      anfraDarkShell ? "text-zinc-500" : "text-muted-foreground"
+                    )}
+                  >
                     {g.label}
                   </p>
                 )}
@@ -163,7 +191,9 @@ export function AppShell({
               </div>
             ))}
           </nav>
-          <div className="border-t p-3">
+          <div
+            className={cn("border-t p-3", anfraDarkShell && "border-zinc-800")}
+          >
             <div className="space-y-1">
               {bottomItems.map((item) => (
                 <NavLink key={item.href} {...item} />
@@ -174,12 +204,24 @@ export function AppShell({
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-40 flex h-14 items-center justify-between gap-2 border-b bg-background/95 px-4 backdrop-blur supports-backdrop-filter:bg-background/80">
+        <header
+          className={cn(
+            "sticky top-0 z-40 flex h-14 items-center justify-between gap-2 border-b px-4 backdrop-blur",
+            anfraDarkShell
+              ? "border-zinc-800 bg-black/90 supports-backdrop-filter:bg-black/80"
+              : "bg-background/95 supports-backdrop-filter:bg-background/80"
+          )}
+        >
           <div className="flex items-center gap-2 md:hidden">
             <button
               type="button"
               onClick={() => setMobileOpen(true)}
-              className="inline-flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground hover:bg-accent/50 hover:text-foreground"
+              className={cn(
+                "inline-flex h-9 w-9 items-center justify-center rounded-md",
+                anfraDarkShell
+                  ? "text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100"
+                  : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
+              )}
               aria-label="メニュー"
             >
               <Menu className="h-5 w-5" />
@@ -191,11 +233,24 @@ export function AppShell({
           </div>
         </header>
 
-        <main className="flex-1 p-4 pb-6">{children}</main>
+        <main
+          className={cn("flex-1 p-4 pb-6", anfraDarkShell && "bg-black")}
+        >
+          {children}
+        </main>
 
         <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
-          <SheetContent side="left" className="p-0">
-            <SheetHeader className="border-b">
+          <SheetContent
+            side="left"
+            className={cn(
+              "p-0",
+              anfraDarkShell &&
+                "border-zinc-800 bg-zinc-950 text-zinc-100 **:data-[slot=sheet-close]:text-zinc-400"
+            )}
+          >
+            <SheetHeader
+              className={cn("border-b", anfraDarkShell && "border-zinc-800")}
+            >
               <SheetTitle className="flex items-center gap-2">
                 <TenantLogo logoUrl={logoUrl} width={40} height={40} className="rounded" />
               </SheetTitle>
@@ -205,7 +260,12 @@ export function AppShell({
                 {groups.map((g) => (
                   <div key={g.key} className="space-y-1">
                     {g.label && (
-                      <p className="px-3 pt-2 text-xs font-medium text-muted-foreground">
+                      <p
+                        className={cn(
+                          "px-3 pt-2 text-xs font-medium",
+                          anfraDarkShell ? "text-zinc-500" : "text-muted-foreground"
+                        )}
+                      >
                         {g.label}
                       </p>
                     )}
@@ -219,7 +279,9 @@ export function AppShell({
                   </div>
                 ))}
               </nav>
-              <div className="border-t p-3">
+              <div
+                className={cn("border-t p-3", anfraDarkShell && "border-zinc-800")}
+              >
                 <div className="space-y-1">
                   {bottomItems.map((item) => (
                     <NavLink

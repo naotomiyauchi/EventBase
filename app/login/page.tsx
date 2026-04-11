@@ -1,5 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
+import { isAnfraHost } from "@/lib/anfra-host";
 import { isSupabaseConfigured } from "@/lib/env";
 import { createClient } from "@/lib/supabase/server";
 import { resolveTenantForHost } from "@/lib/tenant-resolve";
@@ -11,6 +12,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
 import { LoginForm } from "./login-form";
 
 function safeNextPath(raw: string | undefined): string {
@@ -91,46 +93,87 @@ export default async function LoginPage({
 
   const supabase = await createClient();
   const tenant = await resolveTenantForHost(supabase);
+  const anfraDark = await isAnfraHost();
 
   return (
     <div
-      className="relative isolate min-h-svh overflow-hidden"
+      className={cn(
+        "relative isolate min-h-svh overflow-hidden",
+        anfraDark && "bg-black"
+      )}
       style={tenantPrimaryCssVars(tenant?.branding ?? {})}
     >
-      {/* 背景レイヤー */}
-      <div className="absolute inset-0 -z-10 bg-linear-to-b from-background via-muted/30 to-background" />
-      <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(120%_80%_at_50%_-10%,hsl(var(--primary)/0.12),transparent_55%)]" />
-      <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_bottom_right,hsl(var(--primary)/0.06),transparent_50%)]" />
-      <div className="pointer-events-none absolute -left-1/4 top-1/4 -z-10 h-[420px] w-[420px] rounded-full bg-primary/10 blur-3xl dark:bg-primary/15" />
-      <div className="pointer-events-none absolute -right-1/4 bottom-0 -z-10 h-[380px] w-[380px] rounded-full bg-cyan-500/10 blur-3xl dark:bg-cyan-400/8" />
-
-      <div className="pointer-events-none absolute inset-0 -z-10 flex items-center justify-center">
-        {tenant?.branding.logoUrl?.trim() ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={tenant.branding.logoUrl.trim()}
-            alt=""
-            width={1100}
-            height={1100}
-            className="opacity-[0.025] blur-sm"
-            style={{ width: "min(75vw, 620px)", height: "auto" }}
-          />
-        ) : (
-          <Image
-            src="/eventbase-logo.png"
-            alt=""
-            width={1100}
-            height={1100}
-            priority
-            className="opacity-[0.025] blur-sm"
-            style={{ width: "min(75vw, 620px)", height: "auto" }}
-          />
-        )}
-      </div>
-      <div className="pointer-events-none absolute inset-0 -z-10 bg-[linear-gradient(to_right,hsl(var(--border))_1px,transparent_1px),linear-gradient(to_bottom,hsl(var(--border))_1px,transparent_1px)] bg-size-[64px_64px] opacity-[0.2] dark:opacity-[0.12]" />
+      {anfraDark ? (
+        <>
+          <div className="absolute inset-0 -z-10 bg-black" />
+          <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(ellipse_90%_60%_at_50%_-20%,hsl(var(--primary)/0.18),transparent_55%)]" />
+          <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_bottom,hsl(var(--primary)/0.06),transparent_45%)]" />
+          <div className="pointer-events-none absolute -left-1/4 top-1/3 -z-10 h-[400px] w-[400px] rounded-full bg-primary/8 blur-3xl" />
+          <div className="pointer-events-none absolute inset-0 -z-10 bg-[linear-gradient(to_right,rgb(39_39_42/0.35)_1px,transparent_1px),linear-gradient(to_bottom,rgb(39_39_42/0.35)_1px,transparent_1px)] bg-size-[56px_56px]" />
+          <div className="pointer-events-none absolute inset-0 -z-10 flex items-center justify-center">
+            {tenant?.branding.logoUrl?.trim() ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={tenant.branding.logoUrl.trim()}
+                alt=""
+                width={1100}
+                height={1100}
+                className="opacity-[0.04] blur-sm"
+                style={{ width: "min(75vw, 620px)", height: "auto" }}
+              />
+            ) : (
+              <Image
+                src="/eventbase-logo.png"
+                alt=""
+                width={1100}
+                height={1100}
+                priority
+                className="opacity-[0.04] blur-sm"
+                style={{ width: "min(75vw, 620px)", height: "auto" }}
+              />
+            )}
+          </div>
+        </>
+      ) : (
+        <>
+          <div className="absolute inset-0 -z-10 bg-linear-to-b from-background via-muted/30 to-background" />
+          <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(120%_80%_at_50%_-10%,hsl(var(--primary)/0.12),transparent_55%)]" />
+          <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_bottom_right,hsl(var(--primary)/0.06),transparent_50%)]" />
+          <div className="pointer-events-none absolute -left-1/4 top-1/4 -z-10 h-[420px] w-[420px] rounded-full bg-primary/10 blur-3xl dark:bg-primary/15" />
+          <div className="pointer-events-none absolute -right-1/4 bottom-0 -z-10 h-[380px] w-[380px] rounded-full bg-cyan-500/10 blur-3xl dark:bg-cyan-400/8" />
+          <div className="pointer-events-none absolute inset-0 -z-10 flex items-center justify-center">
+            {tenant?.branding.logoUrl?.trim() ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={tenant.branding.logoUrl.trim()}
+                alt=""
+                width={1100}
+                height={1100}
+                className="opacity-[0.025] blur-sm"
+                style={{ width: "min(75vw, 620px)", height: "auto" }}
+              />
+            ) : (
+              <Image
+                src="/eventbase-logo.png"
+                alt=""
+                width={1100}
+                height={1100}
+                priority
+                className="opacity-[0.025] blur-sm"
+                style={{ width: "min(75vw, 620px)", height: "auto" }}
+              />
+            )}
+          </div>
+          <div className="pointer-events-none absolute inset-0 -z-10 bg-[linear-gradient(to_right,hsl(var(--border))_1px,transparent_1px),linear-gradient(to_bottom,hsl(var(--border))_1px,transparent_1px)] bg-size-[64px_64px] opacity-[0.2] dark:opacity-[0.12]" />
+        </>
+      )}
 
       <div className="flex min-h-svh flex-col items-center justify-center px-5 py-12">
-        <LoginForm nextPath={nextPath} tenant={tenant} />
+        <LoginForm
+          nextPath={nextPath}
+          tenant={tenant}
+          anfraDark={anfraDark}
+        />
       </div>
     </div>
   );

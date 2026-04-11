@@ -20,9 +20,11 @@ import { tenantPrimaryCssVars } from "@/lib/tenant-branding";
 export type LoginFormProps = {
   nextPath: string;
   tenant?: TenantResolvePayload | null;
+  /** anfra.jp 系 — ログインカードをダークに */
+  anfraDark?: boolean;
 };
 
-export function LoginForm({ nextPath: next, tenant }: LoginFormProps) {
+export function LoginForm({ nextPath: next, tenant, anfraDark = false }: LoginFormProps) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -51,15 +53,23 @@ export function LoginForm({ nextPath: next, tenant }: LoginFormProps) {
 
   return (
     <div
-      className="w-full max-w-[420px]"
+      className={cn("w-full max-w-[420px]", anfraDark && "text-zinc-100")}
       style={tenantPrimaryCssVars(tenant?.branding ?? {})}
     >
       <div
         className={cn(
-          "relative overflow-hidden rounded-3xl border border-border/50",
-          "bg-card/70 shadow-[0_32px_64px_-16px_rgba(15,23,42,0.18)]",
-          "backdrop-blur-2xl dark:border-white/10 dark:bg-zinc-950/70",
-          "dark:shadow-[0_32px_64px_-12px_rgba(0,0,0,0.65)]"
+          "relative overflow-hidden rounded-3xl border backdrop-blur-2xl",
+          anfraDark
+            ? [
+                "border-zinc-700/80 bg-zinc-900/95",
+                "shadow-[0_32px_64px_-16px_rgba(0,0,0,0.75)]",
+              ]
+            : [
+                "border-border/50 bg-card/70",
+                "shadow-[0_32px_64px_-16px_rgba(15,23,42,0.18)]",
+                "dark:border-white/10 dark:bg-zinc-950/70",
+                "dark:shadow-[0_32px_64px_-12px_rgba(0,0,0,0.65)]",
+              ]
         )}
       >
         <div
@@ -76,8 +86,10 @@ export function LoginForm({ nextPath: next, tenant }: LoginFormProps) {
             <div className="mx-auto flex justify-center">
               <div
                 className={cn(
-                  "rounded-2xl bg-linear-to-br from-muted/80 to-muted/30 p-3 ring-1 ring-border/60",
-                  "shadow-inner dark:from-white/10 dark:to-white/5 dark:ring-white/10"
+                  "rounded-2xl p-3 shadow-inner ring-1",
+                  anfraDark
+                    ? "bg-linear-to-br from-zinc-800 to-zinc-900 ring-zinc-600"
+                    : "bg-linear-to-br from-muted/80 to-muted/30 ring-border/60 dark:from-white/10 dark:to-white/5 dark:ring-white/10"
                 )}
               >
                 <TenantLogo
@@ -89,11 +101,21 @@ export function LoginForm({ nextPath: next, tenant }: LoginFormProps) {
               </div>
             </div>
             <div className="space-y-2 px-1">
-              <h2 className="text-2xl font-semibold tracking-tight text-foreground">
+              <h2
+                className={cn(
+                  "text-2xl font-semibold tracking-tight",
+                  anfraDark ? "text-zinc-50" : "text-foreground"
+                )}
+              >
                 おかえりなさい
               </h2>
               {loginTagline ? (
-                <CardDescription className="text-pretty text-sm leading-relaxed text-muted-foreground">
+                <CardDescription
+                  className={cn(
+                    "text-pretty text-sm leading-relaxed",
+                    anfraDark ? "text-zinc-400" : "text-muted-foreground"
+                  )}
+                >
                   {loginTagline}
                 </CardDescription>
               ) : null}
@@ -107,9 +129,14 @@ export function LoginForm({ nextPath: next, tenant }: LoginFormProps) {
                 nextPath={next}
                 variant="outline"
                 className={cn(
-                  "h-11 w-full rounded-xl border-border/80 bg-background/80 text-sm font-medium",
-                  "shadow-sm transition-all hover:bg-muted/80 hover:shadow-md",
-                  "dark:border-white/15 dark:bg-white/5 dark:hover:bg-white/10"
+                  "h-11 w-full rounded-xl text-sm font-medium shadow-sm transition-all",
+                  anfraDark
+                    ? "border-zinc-600 bg-zinc-950/80 text-zinc-100 hover:bg-zinc-800 hover:shadow-md"
+                    : [
+                        "border-border/80 bg-background/80",
+                        "hover:bg-muted/80 hover:shadow-md",
+                        "dark:border-white/15 dark:bg-white/5 dark:hover:bg-white/10",
+                      ]
                 )}
               >
                 <span className="inline-flex items-center justify-center gap-2.5">
@@ -143,10 +170,22 @@ export function LoginForm({ nextPath: next, tenant }: LoginFormProps) {
 
               <div className="relative py-2">
                 <div className="absolute inset-0 flex items-center">
-                  <span className="w-full border-t border-border/60" />
+                  <span
+                    className={cn(
+                      "w-full border-t",
+                      anfraDark ? "border-zinc-700" : "border-border/60"
+                    )}
+                  />
                 </div>
                 <div className="relative flex justify-center text-xs font-medium uppercase tracking-wider">
-                  <span className="bg-card/90 px-3 text-muted-foreground dark:bg-zinc-950/90">
+                  <span
+                    className={cn(
+                      "px-3",
+                      anfraDark
+                        ? "bg-zinc-900/95 text-zinc-500"
+                        : "bg-card/90 text-muted-foreground dark:bg-zinc-950/90"
+                    )}
+                  >
                     またはメールで
                   </span>
                 </div>
@@ -155,7 +194,13 @@ export function LoginForm({ nextPath: next, tenant }: LoginFormProps) {
 
             <form onSubmit={handleSubmit} className="space-y-5">
               <div className="space-y-2">
-                <Label htmlFor="email" className="text-xs font-medium text-muted-foreground">
+                <Label
+                  htmlFor="email"
+                  className={cn(
+                    "text-xs font-medium",
+                    anfraDark ? "text-zinc-400" : "text-muted-foreground"
+                  )}
+                >
                   メールアドレス
                 </Label>
                 <Input
@@ -165,12 +210,23 @@ export function LoginForm({ nextPath: next, tenant }: LoginFormProps) {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
-                  className="h-11 rounded-xl border-border/80 bg-background/50 px-3.5 text-base dark:bg-white/5"
+                  className={cn(
+                    "h-11 rounded-xl px-3.5 text-base",
+                    anfraDark
+                      ? "border-zinc-600 bg-zinc-950 text-zinc-100 placeholder:text-zinc-600"
+                      : "border-border/80 bg-background/50 dark:bg-white/5"
+                  )}
                   placeholder="name@company.com"
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="password" className="text-xs font-medium text-muted-foreground">
+                <Label
+                  htmlFor="password"
+                  className={cn(
+                    "text-xs font-medium",
+                    anfraDark ? "text-zinc-400" : "text-muted-foreground"
+                  )}
+                >
                   パスワード
                 </Label>
                 <Input
@@ -181,7 +237,12 @@ export function LoginForm({ nextPath: next, tenant }: LoginFormProps) {
                   onChange={(e) => setPassword(e.target.value)}
                   required
                   minLength={6}
-                  className="h-11 rounded-xl border-border/80 bg-background/50 px-3.5 text-base dark:bg-white/5"
+                  className={cn(
+                    "h-11 rounded-xl px-3.5 text-base",
+                    anfraDark
+                      ? "border-zinc-600 bg-zinc-950 text-zinc-100 placeholder:text-zinc-600"
+                      : "border-border/80 bg-background/50 dark:bg-white/5"
+                  )}
                   placeholder="••••••••"
                 />
               </div>
@@ -205,7 +266,12 @@ export function LoginForm({ nextPath: next, tenant }: LoginFormProps) {
               </Button>
             </form>
 
-            <p className="text-center text-xs leading-relaxed text-muted-foreground">
+            <p
+              className={cn(
+                "text-center text-xs leading-relaxed",
+                anfraDark ? "text-zinc-500" : "text-muted-foreground"
+              )}
+            >
               パスワードをお忘れの場合は、管理者へ再設定を依頼してください。
             </p>
           </CardContent>
