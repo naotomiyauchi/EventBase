@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { getCurrentProfile } from "@/lib/auth-profile";
 import { isSupabaseConfigured } from "@/lib/env";
 import { createClient } from "@/lib/supabase/server";
 
@@ -16,7 +17,16 @@ export async function createAgency(formData: FormData) {
   }
 
   const supabase = await createClient();
-  const { error } = await supabase.from("agencies").insert({ carrier_id, name });
+  const profile = await getCurrentProfile(supabase);
+  if (!profile?.tenant_id) {
+    redirect("/dashboard/masters?error=tenant");
+  }
+
+  const { error } = await supabase.from("agencies").insert({
+    carrier_id,
+    name,
+    tenant_id: profile.tenant_id,
+  });
 
   if (error) {
     redirect(`/dashboard/masters?error=${encodeURIComponent(error.message)}`);

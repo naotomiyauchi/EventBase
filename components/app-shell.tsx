@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import React from "react";
@@ -18,8 +17,11 @@ import {
   Users,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { TenantLogo } from "@/components/tenant-logo";
 import { UserMenu } from "@/components/user-menu";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import type { TenantBranding } from "@/lib/tenant-branding";
+import { tenantPrimaryCssVars } from "@/lib/tenant-branding";
 
 const baseGroups = [
   {
@@ -54,6 +56,10 @@ type Props = {
   showAuth: boolean;
   /** 管理者・チームリーダーのみ */
   showSettingsNav?: boolean;
+  /** テナント白ラベル（未設定時は既定の EventBase 見た目） */
+  tenantBranding?: TenantBranding | null;
+  /** 機能フラグ: 請求・見積ナビを表示 */
+  featureBilling?: boolean;
 };
 
 export function AppShell({
@@ -61,24 +67,32 @@ export function AppShell({
   userEmail,
   showAuth,
   showSettingsNav,
+  tenantBranding,
+  featureBilling = true,
 }: Props) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = React.useState(false);
 
   const groups = React.useMemo(() => {
     // 非管理ユーザー向けには「シフト表（管理画面）」を隠す
-    const filtered = baseGroups.map((g) => ({
-      ...g,
-      items:
-        g.key === "staff" && showSettingsNav
-          ? [
-              ...g.items,
-              { href: "/dashboard/shift-board", label: "シフト表（管理）", icon: CalendarDays },
-            ]
-          : g.items,
-    }));
+    const filtered = baseGroups.map((g) => {
+      let items = g.items;
+      if (g.key === "projects" && !featureBilling) {
+        items = items.filter((i) => i.href !== "/dashboard/billing");
+      }
+      return {
+        ...g,
+        items:
+          g.key === "staff" && showSettingsNav
+            ? [
+                ...items,
+                { href: "/dashboard/shift-board", label: "シフト表（管理）", icon: CalendarDays },
+              ]
+            : items,
+      };
+    });
     return filtered;
-  }, [showSettingsNav]);
+  }, [showSettingsNav, featureBilling]);
 
   const bottomItems = React.useMemo(
     () =>
@@ -123,18 +137,16 @@ export function AppShell({
     );
   }
 
+  const logoUrl = tenantBranding?.logoUrl ?? null;
+
   return (
-    <div className="flex min-h-svh flex-col md:flex-row">
+    <div
+      className="flex min-h-svh flex-col md:flex-row"
+      style={tenantPrimaryCssVars(tenantBranding ?? {})}
+    >
       <aside className="hidden w-56 shrink-0 border-r bg-card md:block">
         <div className="flex h-14 items-center gap-2 border-b px-4">
-          <Image
-            src="/eventbase-logo.png"
-            alt="EventBase"
-            width={44}
-            height={44}
-            className="rounded"
-            style={{ width: "auto", height: "auto" }}
-          />
+          <TenantLogo logoUrl={logoUrl} width={44} height={44} className="rounded" />
         </div>
         <div className="flex h-[calc(100svh-3.5rem)] flex-col">
           <nav className="flex-1 space-y-3 overflow-y-auto p-3">
@@ -172,14 +184,7 @@ export function AppShell({
             >
               <Menu className="h-5 w-5" />
             </button>
-            <Image
-              src="/eventbase-logo.png"
-              alt="EventBase"
-              width={34}
-              height={34}
-              className="rounded"
-              style={{ width: "auto", height: "auto" }}
-            />
+            <TenantLogo logoUrl={logoUrl} width={34} height={34} className="rounded" />
           </div>
           <div className="ml-auto md:ml-0">
             <UserMenu email={userEmail} canSignOut={showAuth} />
@@ -192,14 +197,7 @@ export function AppShell({
           <SheetContent side="left" className="p-0">
             <SheetHeader className="border-b">
               <SheetTitle className="flex items-center gap-2">
-                <Image
-                  src="/eventbase-logo.png"
-                  alt="EventBase"
-                  width={40}
-                  height={40}
-                  className="rounded"
-                  style={{ width: "auto", height: "auto" }}
-                />
+                <TenantLogo logoUrl={logoUrl} width={40} height={40} className="rounded" />
               </SheetTitle>
             </SheetHeader>
             <div className="flex h-full flex-col">

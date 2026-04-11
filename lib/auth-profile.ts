@@ -5,6 +5,7 @@ export type AuthProfile = {
   id: string;
   display_name: string | null;
   role: AppRole;
+  tenant_id: string;
 };
 
 export async function getCurrentProfile(
@@ -17,7 +18,7 @@ export async function getCurrentProfile(
 
   const { data, error } = await supabase
     .from("profiles")
-    .select("id, display_name, role")
+    .select("id, display_name, role, tenant_id")
     .eq("id", user.id)
     .maybeSingle();
 
@@ -26,5 +27,6 @@ export async function getCurrentProfile(
     id: data.id,
     display_name: data.display_name,
     role: data.role as AppRole,
+    tenant_id: data.tenant_id as string,
   };
 }

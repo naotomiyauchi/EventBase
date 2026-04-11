@@ -1,26 +1,28 @@
 "use client";
 
-import Image from "next/image";
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { TenantLogo } from "@/components/tenant-logo";
 import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
-  CardTitle,
 } from "@/components/ui/card";
 import { GoogleSheetsOAuthButton } from "@/components/google-sheets-oauth-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { cn } from "@/lib/utils";
+import type { TenantResolvePayload } from "@/lib/tenant-branding";
+import { tenantPrimaryCssVars } from "@/lib/tenant-branding";
 
 export type LoginFormProps = {
-  /** サーバーが URL の `next` から解決（useSearchParams を使わずハイドレーションを一致させる） */
   nextPath: string;
+  tenant?: TenantResolvePayload | null;
 };
 
-export function LoginForm({ nextPath: next }: LoginFormProps) {
+export function LoginForm({ nextPath: next, tenant }: LoginFormProps) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -42,109 +44,173 @@ export function LoginForm({ nextPath: next }: LoginFormProps) {
     }
     const safeNext =
       next.startsWith("/") && !next.startsWith("//") ? next : "/dashboard";
-    /** iOS Safari 等でクッキー確定前にクライアント遷移すると未ログイン扱いになることがあるためフルリロードする */
     window.location.assign(safeNext);
   }
 
+  const loginTagline = tenant?.branding.loginTagline?.trim();
+
   return (
-    <Card className="w-full max-w-md border bg-background/70 shadow-lg backdrop-blur">
-      <CardHeader>
-        <div className="flex items-center gap-4">
-          <Image
-            src="/eventbase-logo.png"
-            alt="EventBase"
-            width={84}
-            height={84}
-            className="rounded-xl ring-1 ring-foreground/10"
-            style={{ width: "auto", height: "auto" }}
-          />
-          <div>
-            <CardTitle className="text-xl">ログイン</CardTitle>
-            <CardDescription>
-              管理者またはチームリーダーが発行したアカウントでログインします。
-            </CardDescription>
-          </div>
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-6">
-        <div className="space-y-2">
-          <GoogleSheetsOAuthButton
-            mode="signIn"
-            nextPath={next}
-            variant="outline"
-            className="w-full"
-          >
-            <span className="inline-flex items-center justify-center gap-2">
-              <svg
-                aria-hidden="true"
-                focusable="false"
-                width="18"
-                height="18"
-                viewBox="0 0 48 48"
+    <div
+      className="w-full max-w-[420px]"
+      style={tenantPrimaryCssVars(tenant?.branding ?? {})}
+    >
+      <div
+        className={cn(
+          "relative overflow-hidden rounded-3xl border border-border/50",
+          "bg-card/70 shadow-[0_32px_64px_-16px_rgba(15,23,42,0.18)]",
+          "backdrop-blur-2xl dark:border-white/10 dark:bg-zinc-950/70",
+          "dark:shadow-[0_32px_64px_-12px_rgba(0,0,0,0.65)]"
+        )}
+      >
+        <div
+          className="pointer-events-none absolute inset-x-0 top-0 h-px bg-linear-to-r from-transparent via-primary/40 to-transparent"
+          aria-hidden
+        />
+        <div
+          className="pointer-events-none absolute inset-x-8 top-0 h-24 rounded-full bg-primary/15 blur-3xl"
+          aria-hidden
+        />
+
+        <Card className="border-0 bg-transparent shadow-none">
+          <CardHeader className="space-y-6 pb-2 pt-10 text-center">
+            <div className="mx-auto flex justify-center">
+              <div
+                className={cn(
+                  "rounded-2xl bg-linear-to-br from-muted/80 to-muted/30 p-3 ring-1 ring-border/60",
+                  "shadow-inner dark:from-white/10 dark:to-white/5 dark:ring-white/10"
+                )}
               >
-                <path
-                  fill="#FFC107"
-                  d="M43.611 20.083H42V20H24v8h11.303C33.653 32.657 29.153 36 24 36c-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.96 3.04l5.657-5.657C34.045 6.053 29.272 4 24 4 12.955 4 4 12.955 4 24s8.955 20 20 20 20-8.955 20-20c0-1.341-.138-2.65-.389-3.917z"
+                <TenantLogo
+                  logoUrl={tenant?.branding.logoUrl}
+                  width={88}
+                  height={88}
+                  className="rounded-xl"
                 />
-                <path
-                  fill="#FF3D00"
-                  d="M6.306 14.691l6.571 4.819C14.655 15.108 18.961 12 24 12c3.059 0 5.842 1.154 7.96 3.04l5.657-5.657C34.045 6.053 29.272 4 24 4c-7.682 0-14.354 4.327-17.694 10.691z"
+              </div>
+            </div>
+            <div className="space-y-2 px-1">
+              <h2 className="text-2xl font-semibold tracking-tight text-foreground">
+                おかえりなさい
+              </h2>
+              {loginTagline ? (
+                <CardDescription className="text-pretty text-sm leading-relaxed text-muted-foreground">
+                  {loginTagline}
+                </CardDescription>
+              ) : null}
+            </div>
+          </CardHeader>
+
+          <CardContent className="space-y-8 px-6 pb-10 pt-2">
+            <div className="space-y-3">
+              <GoogleSheetsOAuthButton
+                mode="signIn"
+                nextPath={next}
+                variant="outline"
+                className={cn(
+                  "h-11 w-full rounded-xl border-border/80 bg-background/80 text-sm font-medium",
+                  "shadow-sm transition-all hover:bg-muted/80 hover:shadow-md",
+                  "dark:border-white/15 dark:bg-white/5 dark:hover:bg-white/10"
+                )}
+              >
+                <span className="inline-flex items-center justify-center gap-2.5">
+                  <svg
+                    aria-hidden="true"
+                    focusable="false"
+                    width="18"
+                    height="18"
+                    viewBox="0 0 48 48"
+                  >
+                    <path
+                      fill="#FFC107"
+                      d="M43.611 20.083H42V20H24v8h11.303C33.653 32.657 29.153 36 24 36c-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.96 3.04l5.657-5.657C34.045 6.053 29.272 4 24 4 12.955 4 4 12.955 4 24s8.955 20 20 20 20-8.955 20-20c0-1.341-.138-2.65-.389-3.917z"
+                    />
+                    <path
+                      fill="#FF3D00"
+                      d="M6.306 14.691l6.571 4.819C14.655 15.108 18.961 12 24 12c3.059 0 5.842 1.154 7.96 3.04l5.657-5.657C34.045 6.053 29.272 4 24 4c-7.682 0-14.354 4.327-17.694 10.691z"
+                    />
+                    <path
+                      fill="#4CAF50"
+                      d="M24 44c5.074 0 9.768-1.94 13.29-5.09l-6.13-5.19C29.106 35.26 26.674 36 24 36c-5.132 0-9.62-3.317-11.283-7.946l-6.52 5.025C9.505 39.556 16.227 44 24 44z"
+                    />
+                    <path
+                      fill="#1976D2"
+                      d="M43.611 20.083H42V20H24v8h11.303a12.03 12.03 0 0 1-4.143 5.72l.003-.002 6.13 5.19C36.836 39.327 44 34 44 24c0-1.341-.138-2.65-.389-3.917z"
+                    />
+                  </svg>
+                  Google でログイン
+                </span>
+              </GoogleSheetsOAuthButton>
+
+              <div className="relative py-2">
+                <div className="absolute inset-0 flex items-center">
+                  <span className="w-full border-t border-border/60" />
+                </div>
+                <div className="relative flex justify-center text-xs font-medium uppercase tracking-wider">
+                  <span className="bg-card/90 px-3 text-muted-foreground dark:bg-zinc-950/90">
+                    またはメールで
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <form onSubmit={handleSubmit} className="space-y-5">
+              <div className="space-y-2">
+                <Label htmlFor="email" className="text-xs font-medium text-muted-foreground">
+                  メールアドレス
+                </Label>
+                <Input
+                  id="email"
+                  type="email"
+                  autoComplete="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  className="h-11 rounded-xl border-border/80 bg-background/50 px-3.5 text-base dark:bg-white/5"
+                  placeholder="name@company.com"
                 />
-                <path
-                  fill="#4CAF50"
-                  d="M24 44c5.074 0 9.768-1.94 13.29-5.09l-6.13-5.19C29.106 35.26 26.674 36 24 36c-5.132 0-9.62-3.317-11.283-7.946l-6.52 5.025C9.505 39.556 16.227 44 24 44z"
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="password" className="text-xs font-medium text-muted-foreground">
+                  パスワード
+                </Label>
+                <Input
+                  id="password"
+                  type="password"
+                  autoComplete="current-password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  minLength={6}
+                  className="h-11 rounded-xl border-border/80 bg-background/50 px-3.5 text-base dark:bg-white/5"
+                  placeholder="••••••••"
                 />
-                <path
-                  fill="#1976D2"
-                  d="M43.611 20.083H42V20H24v8h11.303a12.03 12.03 0 0 1-4.143 5.72l.003-.002 6.13 5.19C36.836 39.327 44 34 44 24c0-1.341-.138-2.65-.389-3.917z"
-                />
-              </svg>
-              <span>Google でログイン</span>
-            </span>
-          </GoogleSheetsOAuthButton>
-          <div className="flex items-center gap-3 py-1">
-            <div className="h-px flex-1 bg-border" />
-            <p className="text-xs text-muted-foreground">または</p>
-            <div className="h-px flex-1 bg-border" />
-          </div>
-        </div>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="email">メールアドレス</Label>
-            <Input
-              id="email"
-              type="email"
-              autoComplete="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="password">パスワード</Label>
-            <Input
-              id="password"
-              type="password"
-              autoComplete="current-password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              minLength={6}
-            />
-          </div>
-          {message && (
-            <p className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-              {message}
+              </div>
+              {message && (
+                <p
+                  role="alert"
+                  className="rounded-xl border border-destructive/25 bg-destructive/10 px-3.5 py-2.5 text-sm text-destructive"
+                >
+                  {message}
+                </p>
+              )}
+              <Button
+                type="submit"
+                disabled={loading}
+                className={cn(
+                  "h-11 w-full rounded-xl text-base font-semibold shadow-lg shadow-primary/20",
+                  "transition-all hover:shadow-xl hover:shadow-primary/25"
+                )}
+              >
+                {loading ? "サインイン中…" : "サインイン"}
+              </Button>
+            </form>
+
+            <p className="text-center text-xs leading-relaxed text-muted-foreground">
+              パスワードをお忘れの場合は、管理者へ再設定を依頼してください。
             </p>
-          )}
-          <Button type="submit" className="w-full" disabled={loading}>
-            {loading ? "処理中…" : "ログイン"}
-          </Button>
-        </form>
-        <p className="text-center text-xs text-muted-foreground">
-          パスワードが不明な場合は管理者に再設定を依頼してください。
-        </p>
-      </CardContent>
-    </Card>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
   );
 }

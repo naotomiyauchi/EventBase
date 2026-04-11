@@ -549,7 +549,7 @@ export async function registerStaffWithAccount(formData: FormData) {
     );
   }
 
-  const insertRow = { ...row, email: emailNorm };
+  const insertRow = { ...row, email: emailNorm, tenant_id: actor.tenant_id };
 
   const { data: inserted, error: insErr } = await admin
     .from("staff")
