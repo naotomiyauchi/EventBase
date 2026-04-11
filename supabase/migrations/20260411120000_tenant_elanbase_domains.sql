@@ -1,4 +1,4 @@
--- ElanBase 社向け: 指定ホストでテナント解決（白ラベル）
+-- ElanBase（顧客）: event-base.app / www のみ。このファイルより後のマイグレーションで当社ドメインを default に紐づける。
 
 insert into public.tenants (name, slug, branding)
 values (
@@ -20,8 +20,7 @@ from public.tenants t
 cross join (
   values
     ('event-base.app', true),
-    ('www.event-base.app', false),
-    ('event-base-chi.vercel.app', false)
+    ('www.event-base.app', false)
 ) as v(hostname, is_primary)
 where t.slug = 'elanbase'
 on conflict (hostname) do update
