@@ -15,6 +15,7 @@ import {
   Store,
   User,
   Users,
+  Wallet,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { TenantLogo } from "@/components/tenant-logo";
@@ -36,6 +37,7 @@ const baseGroups = [
       { href: "/dashboard/projects", label: "案件情報", icon: ClipboardList },
       { href: "/dashboard/stores", label: "イベント", icon: Store },
       { href: "/dashboard/billing", label: "請求・見積", icon: FileText },
+      { href: "/dashboard/finance", label: "領収書・出納", icon: Wallet },
       { href: "/dashboard/masters", label: "マスタ", icon: Building2 },
     ],
   },
@@ -82,6 +84,9 @@ export function AppShell({
       let items = g.items;
       if (g.key === "projects" && !featureBilling) {
         items = items.filter((i) => i.href !== "/dashboard/billing");
+      }
+      if (g.key === "projects" && !showSettingsNav) {
+        items = items.filter((i) => i.href !== "/dashboard/finance");
       }
       return {
         ...g,

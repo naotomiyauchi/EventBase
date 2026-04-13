@@ -24,6 +24,7 @@ export default async function MastersPage({
   type Agency = {
     id: string;
     name: string;
+    fee_rate: number | null;
     carriers: { name: string } | null;
   };
   let carriers: Carrier[] = [];
@@ -35,7 +36,7 @@ export default async function MastersPage({
       supabase.from("carriers").select("id, code, name").order("sort_order"),
       supabase
         .from("agencies")
-        .select(`id, name, carriers ( name )`)
+        .select(`id, name, fee_rate, carriers ( name )`)
         .order("name"),
     ]);
     carriers = (c.data ?? []) as Carrier[];
@@ -124,6 +125,17 @@ export default async function MastersPage({
                   <Label htmlFor="agency_name">代理店名</Label>
                   <Input id="agency_name" name="name" required />
                 </div>
+                <div className="space-y-2">
+                  <Label htmlFor="agency_fee_rate">手数料率（%）</Label>
+                  <Input
+                    id="agency_fee_rate"
+                    name="fee_rate"
+                    type="number"
+                    min={0}
+                    step="0.01"
+                    defaultValue="0"
+                  />
+                </div>
                 <Button type="submit" disabled={!isSupabaseConfigured()}>
                   登録
                 </Button>
@@ -145,6 +157,9 @@ export default async function MastersPage({
                   className="rounded-md border px-3 py-2 text-sm"
                 >
                   <span className="font-medium">{a.name}</span>
+                  <span className="ml-2 text-muted-foreground">
+                    手数料 {Number(a.fee_rate ?? 0).toFixed(2)}%
+                  </span>
                   {a.carriers?.name && (
                     <span className="ml-2 text-muted-foreground">
                       ({a.carriers.name})

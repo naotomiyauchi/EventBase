@@ -136,9 +136,35 @@ export async function generateBillingDraftAction(formData: FormData) {
     return lines;
   });
 
-  const subtotal = lineRows.reduce((s, l) => s + l.amount, 0);
-  const { tax, total } = calcTax(subtotal, Number.isFinite(taxRate) ? taxRate : 10);
   const baseAgencyId = mode === "project" ? rows[0]?.agency_id ?? null : agencyId;
+  let calculatedLines = [...lineRows];
+
+  if (baseAgencyId) {
+    const { data: agency } = await supabase
+      .from("agencies")
+      .select("fee_rate")
+      .eq("id", baseAgencyId)
+      .maybeSingle();
+    const feeRate = Number(agency?.fee_rate ?? 0);
+    if (Number.isFinite(feeRate) && feeRate > 0) {
+      const baseAmount = calculatedLines.reduce((s, l) => s + l.amount, 0);
+      const feeAmount = Math.round((baseAmount * feeRate) / 100);
+      if (feeAmount > 0) {
+        calculatedLines.push({
+          sort_order: 9990,
+          line_type: "agency_fee",
+          description: `代理店手数料 (${feeRate}%)`,
+          quantity: 1,
+          unit_price: feeAmount,
+          amount: feeAmount,
+          project_id: rows[0]?.project_id ?? projectId,
+        });
+      }
+    }
+  }
+
+  const subtotal = calculatedLines.reduce((s, l) => s + l.amount, 0);
+  const { tax, total } = calcTax(subtotal, Number.isFinite(taxRate) ? taxRate : 10);
 
   const { data: inserted, error } = await supabase
     .from("billing_documents")
@@ -166,7 +192,7 @@ export async function generateBillingDraftAction(formData: FormData) {
   }
 
   const { error: lineError } = await supabase.from("billing_document_lines").insert(
-    lineRows.map((l) => ({
+    calculatedLines.map((l) => ({
       document_id: inserted.id,
       ...l,
     }))

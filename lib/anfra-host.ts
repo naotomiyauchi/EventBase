@@ -5,6 +5,8 @@ const ANFRA_HOSTNAMES = new Set([
   "anfra.jp",
   "www.anfra.jp",
   "event-base-chi.vercel.app",
+  "localhost",
+  "127.0.0.1",
 ]);
 
 export function normalizeHostname(raw: string): string {

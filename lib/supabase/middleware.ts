@@ -45,8 +45,9 @@ export async function updateSession(request: NextRequest) {
   const isAuthRoute =
     request.nextUrl.pathname.startsWith("/login") ||
     request.nextUrl.pathname.startsWith("/auth");
+  const isPublicApiWebhook = request.nextUrl.pathname.startsWith("/api/line/webhook");
 
-  if (!user && !isAuthRoute) {
+  if (!user && !isAuthRoute && !isPublicApiWebhook) {
     if (request.nextUrl.pathname.startsWith("/api")) {
       /** Google OAuth 戻り。セッション切れ時は API 内でログインへ誘導する */
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

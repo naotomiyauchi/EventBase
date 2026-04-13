@@ -7,6 +7,7 @@ import { getCurrentProfile } from "@/lib/auth-profile";
 import { getOAuth2WithRefreshToken } from "@/lib/google-oauth-client";
 import { upsertShiftEventsToGoogleCalendar } from "@/lib/google-shift-calendar";
 import { isGoogleSheetsApiConfigured } from "@/lib/google-sheets-config";
+import { isLineConfigured, pushLineMessages } from "@/lib/line-messaging";
 import { createClient } from "@/lib/supabase/server";
 
 function parseJstLocalToIso(v: string): string | null {
@@ -152,6 +153,100 @@ export async function publishDraftShiftsAction(formData: FormData) {
   revalidatePath("/dashboard/shifts");
   revalidatePath("/dashboard/attendance");
   redirect("/dashboard/shifts?published=1");
+}
+
+export async function sendLineShiftBroadcastAction(formData: FormData) {
+  const supabase = await createClient();
+  const profile = await getCurrentProfile(supabase);
+  if (!profile || !isAppManagerRole(profile.role)) {
+    redirect("/dashboard/shifts?error=権限がありません");
+  }
+  if (!isLineConfigured()) {
+    redirect("/dashboard/shifts?error=LINE設定が未完了です");
+  }
+
+  const startDate = String(formData.get("start_date") ?? "").trim();
+  const endDate = String(formData.get("end_date") ?? "").trim();
+  const startIso = parseJstDateTimeToIso(startDate, "00:00");
+  const endIso = parseJstDateTimeToIso(endDate, "23:59");
+  if (!startIso || !endIso) {
+    redirect("/dashboard/shifts?error=期間を指定してください");
+  }
+
+  const { data: shifts } = await supabase
+    .from("project_shifts")
+    .select(
+      `
+      id, staff_id, scheduled_start_at, scheduled_end_at, role,
+      projects ( title )
+    `
+    )
+    .gte("scheduled_start_at", startIso)
+    .lte("scheduled_start_at", endIso)
+    .neq("status", "cancelled")
+    .eq("publish_status", "published");
+
+  const rows = (shifts ?? []) as {
+    id: string;
+    staff_id: string;
+    scheduled_start_at: string;
+    scheduled_end_at: string;
+    role: "leader" | "helper";
+    projects: { title?: string }[] | null;
+  }[];
+
+  if (rows.length === 0) {
+    redirect("/dashboard/shifts?error=送信対象シフトがありません");
+  }
+
+  const staffIds = [...new Set(rows.map((r) => r.staff_id))];
+  const { data: links } = await supabase
+    .from("line_user_links")
+    .select("staff_id, line_user_id")
+    .in("staff_id", staffIds);
+  const lineByStaff = new Map((links ?? []).map((l) => [l.staff_id, l.line_user_id]));
+
+  let sent = 0;
+  for (const row of rows) {
+    const lineUserId = lineByStaff.get(row.staff_id);
+    if (!lineUserId) continue;
+    const projectTitle = row.projects?.[0]?.title ?? "案件未設定";
+    const msg = [
+      "【シフト通知】",
+      `案件: ${projectTitle}`,
+      `日時: ${new Date(row.scheduled_start_at).toLocaleString("ja-JP", {
+        timeZone: "Asia/Tokyo",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false,
+      })} - ${new Date(row.scheduled_end_at).toLocaleTimeString("ja-JP", {
+        timeZone: "Asia/Tokyo",
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false,
+      })}`,
+      `役割: ${row.role === "leader" ? "リーダー" : "ヘルパー"}`,
+      "希望休は「希望休 YYYY-MM-DD 理由」で送信できます。",
+    ].join("\n");
+
+    const result = await pushLineMessages([lineUserId], [{ type: "text", text: msg }]);
+    await supabase.from("line_shift_notifications").insert({
+      tenant_id: profile.tenant_id,
+      shift_id: row.id,
+      staff_id: row.staff_id,
+      line_user_id: lineUserId,
+      notification_type: "shift_publish",
+      message: msg,
+      status: result.ok ? "sent" : "error",
+      provider_message_id: result.ok ? "line_multicast" : null,
+    });
+    if (result.ok) sent += 1;
+  }
+
+  revalidatePath("/dashboard/shifts");
+  redirect(`/dashboard/shifts?line_sent=${sent}`);
 }
 
 export async function syncShiftsToGoogleCalendarAction(formData: FormData) {

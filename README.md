@@ -33,3 +33,21 @@ cp .env.example .env.local
 - メール / パスワード認証、モバイル向けボトムナビ
 
 今後の拡張用に、勤怠・LINE・AI・請求 PDF などは未実装です。
+
+## LINE連携（運用メモ）
+
+以下を `.env.local` に設定すると、Webhook / 一斉通知が有効になります。
+
+- `LINE_CHANNEL_ACCESS_TOKEN`
+- `LINE_CHANNEL_SECRET`
+- `SUPABASE_SERVICE_ROLE_KEY`（Webhookで希望休登録を行うため）
+
+Webhook URL（LINE Developers 側）:
+
+- `https://<your-domain>/api/line/webhook`
+
+スタッフの連携手順:
+
+1. LINEで Bot に `連携 staff@example.com` を送信
+2. シフト管理画面の「LINE一斉通知」から通知送信
+3. 希望休は `希望休 2026-04-30 私用` の形式で送信

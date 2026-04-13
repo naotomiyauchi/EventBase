@@ -12,6 +12,8 @@ export async function createAgency(formData: FormData) {
   }
   const carrier_id = String(formData.get("carrier_id") ?? "").trim();
   const name = String(formData.get("name") ?? "").trim();
+  const feeRateRaw = Number(String(formData.get("fee_rate") ?? "0"));
+  const fee_rate = Number.isFinite(feeRateRaw) ? Math.max(0, feeRateRaw) : 0;
   if (!carrier_id || !name) {
     redirect("/dashboard/masters?error=required");
   }
@@ -25,6 +27,7 @@ export async function createAgency(formData: FormData) {
   const { error } = await supabase.from("agencies").insert({
     carrier_id,
     name,
+    fee_rate,
     tenant_id: profile.tenant_id,
   });
 

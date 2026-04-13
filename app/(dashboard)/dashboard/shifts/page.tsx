@@ -9,6 +9,7 @@ import { createClient } from "@/lib/supabase/server";
 import {
   createShiftAction,
   publishDraftShiftsAction,
+  sendLineShiftBroadcastAction,
   sendShiftReminderAction,
   syncShiftsToGoogleCalendarAction,
 } from "@/app/actions/shifts";
@@ -36,6 +37,7 @@ export default async function ShiftManagementPage({
   searchParams: Promise<{
     created?: string;
     reminded?: string;
+    line_sent?: string;
     published?: string;
     synced?: string;
     gcal_created?: string;
@@ -116,6 +118,11 @@ export default async function ShiftManagementPage({
         </p>
       )}
       {sp.reminded && <p className="text-sm text-green-600 dark:text-green-400">確認リマインドを記録しました。</p>}
+      {sp.line_sent && (
+        <p className="text-sm text-green-600 dark:text-green-400">
+          LINEへシフト通知を送信しました（{sp.line_sent}件）。
+        </p>
+      )}
       {sp.error && (
         <p className="rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm text-destructive">
           {decodeURIComponent(sp.error)}
@@ -224,6 +231,22 @@ export default async function ShiftManagementPage({
             <Input name="start_date" type="date" required />
             <Input name="end_date" type="date" required />
             <Button type="submit">一括公開</Button>
+          </form>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">LINE一斉通知</CardTitle>
+          <CardDescription>
+            公開済みシフトを、LINE連携済みスタッフへ一斉通知します。
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form action={sendLineShiftBroadcastAction} className="grid gap-3 sm:grid-cols-[1fr_1fr_auto]">
+            <Input name="start_date" type="date" required />
+            <Input name="end_date" type="date" required />
+            <Button type="submit">LINEへ送信</Button>
           </form>
         </CardContent>
       </Card>
