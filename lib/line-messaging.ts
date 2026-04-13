@@ -49,16 +49,77 @@ export async function replyLineMessage(
   });
 }
 
+async function lineApi(
+  path: string,
+  init: { method: string; body?: unknown }
+): Promise<{ ok: boolean; json: Record<string, unknown>; text: string }> {
+  const token = process.env.LINE_CHANNEL_ACCESS_TOKEN;
+  if (!token) return { ok: false, json: {}, text: "LINE_CHANNEL_ACCESS_TOKEN missing" };
+  const res = await fetch(`https://api.line.me${path}`, {
+    method: init.method,
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: init.body != null ? JSON.stringify(init.body) : undefined,
+  });
+  const text = await res.text();
+  const json = (text ? JSON.parse(text) : {}) as Record<string, unknown>;
+  return { ok: res.ok, json, text };
+}
+
+export async function createDefaultRichMenu(): Promise<{ ok: boolean; richMenuId?: string; error?: string }> {
+  const menu = {
+    size: { width: 2500, height: 1686 },
+    selected: true,
+    name: "EventBase Menu",
+    chatBarText: "EventBaseメニュー",
+    areas: [
+      {
+        bounds: { x: 0, y: 0, width: 833, height: 1686 },
+        action: { type: "message", text: "連携設定" },
+      },
+      {
+        bounds: { x: 833, y: 0, width: 834, height: 1686 },
+        action: { type: "message", text: "希望休入力" },
+      },
+      {
+        bounds: { x: 1667, y: 0, width: 833, height: 1686 },
+        action: { type: "message", text: "使い方" },
+      },
+    ],
+  };
+
+  const created = await lineApi("/v2/bot/richmenu", { method: "POST", body: menu });
+  if (!created.ok) return { ok: false, error: created.text };
+  const richMenuId = String(created.json.richMenuId ?? "");
+  if (!richMenuId) return { ok: false, error: "richMenuId_missing" };
+
+  const setDefault = await lineApi(`/v2/bot/user/all/richmenu/${richMenuId}`, { method: "POST" });
+  if (!setDefault.ok) return { ok: false, error: setDefault.text };
+
+  return { ok: true, richMenuId };
+}
+
 export function parseUnavailableCommand(text: string): { date: string; reason: string | null } | null {
   const t = text.trim();
-  const m = t.match(/^(希望休|NG)\s+(\d{4}-\d{2}-\d{2})(?:\s+(.+))?$/);
-  if (!m) return null;
-  return { date: m[2], reason: m[3]?.trim() ?? null };
+  const lines = t.split(/\r?\n/).map((x) => x.trim()).filter(Boolean);
+  const all = [t, ...lines];
+  for (const candidate of all) {
+    const m1 = candidate.match(/^(希望休|NG)\s+(\d{4}-\d{2}-\d{2})(?:\s+(.+))?$/);
+    if (m1) return { date: m1[2], reason: m1[3]?.trim() ?? null };
+    const m2 = candidate.match(/^(\d{4}-\d{2}-\d{2})(?:\s+(.+))?$/);
+    if (m2) return { date: m2[1], reason: m2[2]?.trim() ?? null };
+  }
+  return null;
 }
 
 export function parseLinkCommand(text: string): { email: string } | null {
   const t = text.trim();
   const m = t.match(/^連携\s+([^\s]+@[^\s]+)$/);
-  if (!m) return null;
-  return { email: m[1].toLowerCase() };
+  if (m) return { email: m[1].toLowerCase() };
+  // 名前付き入力など（例: "宮内 直人 naotomiyauchi.1207@gmail.com"）
+  const e = t.match(/([A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,})/i);
+  if (!e) return null;
+  return { email: e[1].toLowerCase() };
 }

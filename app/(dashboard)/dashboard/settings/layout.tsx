@@ -21,7 +21,7 @@ export default async function SettingsLayout({
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">設定</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          スタッフ名簿・登録・Google 連携を行います。
+          スタッフ名簿・登録・Google/LINE 連携を行います。
         </p>
         <nav className="mt-4 flex flex-wrap gap-2 border-b pb-3">
           <Link
@@ -39,6 +39,14 @@ export default async function SettingsLayout({
             )}
           >
             Google 連携
+          </Link>
+          <Link
+            href="/dashboard/settings/line"
+            className={cn(
+              "rounded-md px-3 py-1.5 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
+            )}
+          >
+            LINE 連携
           </Link>
         </nav>
       </div>

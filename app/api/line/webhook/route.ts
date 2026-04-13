@@ -38,8 +38,101 @@ export async function POST(req: Request) {
 
     try {
       if (ev.type === "message" && userId && text) {
+        let replied = false;
+        let activeSession:
+          | { id: string; mode: string; tenant_id: string; expires_at: string }
+          | null = null;
+        const { data: linkedTenant } = await admin
+          .from("line_user_links")
+          .select("tenant_id")
+          .eq("line_user_id", userId)
+          .maybeSingle();
+        if (linkedTenant?.tenant_id) {
+          tenantId = linkedTenant.tenant_id;
+          const { data: session } = await admin
+            .from("line_input_sessions")
+            .select("id, mode, tenant_id, expires_at")
+            .eq("tenant_id", linkedTenant.tenant_id)
+            .eq("line_user_id", userId)
+            .eq("status", "awaiting_input")
+            .maybeSingle();
+          if (session && new Date(session.expires_at).getTime() > Date.now()) {
+            activeSession = session;
+          }
+        }
+
+        if (text === "連携設定") {
+          if (tenantId) {
+            await admin.from("line_input_sessions").upsert(
+              {
+                tenant_id: tenantId,
+                line_user_id: userId,
+                mode: "link",
+                status: "awaiting_input",
+                expires_at: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
+              },
+              { onConflict: "tenant_id,line_user_id" }
+            );
+          }
+          if (ev.replyToken) {
+            await replyLineMessage(
+              ev.replyToken,
+              "連携したいメールアドレスを送信してください。\n例: naotomiyauchi.1207@gmail.com\n（初回はこの入力だけで連携できます）"
+            );
+            replied = true;
+          }
+        }
+
+        if (!replied && text === "希望休入力") {
+          if (!tenantId) {
+            const { data: anyLink } = await admin
+              .from("line_user_links")
+              .select("tenant_id")
+              .eq("line_user_id", userId)
+              .maybeSingle();
+            tenantId = anyLink?.tenant_id ?? null;
+          }
+          if (tenantId) {
+            await admin.from("line_input_sessions").upsert(
+              {
+                tenant_id: tenantId,
+                line_user_id: userId,
+                mode: "unavailable",
+                status: "awaiting_input",
+                expires_at: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
+              },
+              { onConflict: "tenant_id,line_user_id" }
+            );
+            if (ev.replyToken) {
+              await replyLineMessage(
+                ev.replyToken,
+                "希望休を入力してください。\n例: 2026-04-30 私用"
+              );
+              replied = true;
+            }
+          } else if (ev.replyToken) {
+            await replyLineMessage(ev.replyToken, "先に「連携 メールアドレス」を送信してください。");
+            replied = true;
+          }
+        }
+
+        if (!replied && text === "使い方" && ev.replyToken) {
+          await replyLineMessage(
+            ev.replyToken,
+            "使い方:\n1) 連携設定 を押してメール連携\n2) 希望休入力 で日付を送信\n例: 希望休 2026-04-30 私用"
+          );
+          replied = true;
+        }
+
+        if (!replied && activeSession?.mode === "link") {
+          const lc = parseLinkCommand(text);
+          if (!lc && ev.replyToken) {
+            await replyLineMessage(ev.replyToken, "メール形式で入力してください。例: staff@example.com");
+            replied = true;
+          }
+        }
         const link = parseLinkCommand(text);
-        if (link) {
+        if (!replied && link) {
           const { data: staff } = await admin
             .from("staff")
             .select("id, tenant_id, name, email")
@@ -61,14 +154,21 @@ export async function POST(req: Request) {
                 ev.replyToken,
                 `連携完了: ${staff.name ?? staff.email ?? "スタッフ"}\n希望休は「希望休 YYYY-MM-DD 理由」で送信してください。`
               );
+              replied = true;
             }
+            await admin
+              .from("line_input_sessions")
+              .delete()
+              .eq("tenant_id", staff.tenant_id)
+              .eq("line_user_id", userId);
           } else if (ev.replyToken) {
             await replyLineMessage(ev.replyToken, "連携対象のスタッフメールが見つかりませんでした。");
+            replied = true;
           }
         }
 
         const off = parseUnavailableCommand(text);
-        if (off) {
+        if (!replied && off) {
           const { data: linkRow } = await admin
             .from("line_user_links")
             .select("staff_id, tenant_id")
@@ -96,10 +196,24 @@ export async function POST(req: Request) {
                   ? "希望休の登録に失敗しました。形式を確認して再送してください。"
                   : `希望休を登録しました: ${off.date}${off.reason ? ` (${off.reason})` : ""}`
               );
+              replied = true;
             }
+            await admin
+              .from("line_input_sessions")
+              .delete()
+              .eq("tenant_id", linkRow.tenant_id)
+              .eq("line_user_id", userId);
           } else if (ev.replyToken) {
             await replyLineMessage(ev.replyToken, "先に「連携 メールアドレス」を送信して連携してください。");
+            replied = true;
           }
+        }
+
+        if (!replied && ev.replyToken) {
+          await replyLineMessage(
+            ev.replyToken,
+            "受付コマンド:\n1) 連携 メールアドレス\n2) 希望休 YYYY-MM-DD 理由\n例) 希望休 2026-04-30 私用"
+          );
         }
       }
     } catch (e) {
