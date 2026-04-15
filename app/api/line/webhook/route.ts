@@ -5,6 +5,7 @@ import {
   isLineConfigured,
   isLineShiftInquiryText,
   normalizeModeTrigger,
+  parseLinkCodeCommand,
   parseLinkCommand,
   parseUnavailableCommand,
   replyLineMessage,
@@ -148,7 +149,7 @@ export async function POST(req: Request) {
           if (ev.replyToken) {
             await replyLineMessage(
               ev.replyToken,
-              "連携したいメールアドレスを送信してください。\n例: naotomiyauchi.1207@gmail.com\n（初回はこの入力だけで連携できます）"
+              "連携コード（6桁）またはメールアドレスを送信してください。\n例1: 連携 123456\n例2: naotomiyauchi.1207@gmail.com"
             );
             replied = true;
           }
@@ -223,51 +224,164 @@ export async function POST(req: Request) {
         if (!replied && trigger === "help" && ev.replyToken) {
           await replyLineMessage(
             ev.replyToken,
-            "使い方:\n1) 連携設定 でメール連携\n2) 希望休入力 で日付を送信（例: 2026-04-30 私用）\n3) 「シフト」と送ると担当者へ通知されます"
+            "使い方:\n1) 管理者から届いた6桁コードを「連携 123456」で送信\n2) 希望休入力 で日付を送信（例: 2026-04-30 私用）\n3) 「シフト」と送ると担当者へ通知されます"
           );
           replied = true;
         }
 
         if (!replied && activeSession?.mode === "link" && msgType === "text") {
           const lc = parseLinkCommand(text);
-          if (!lc && ev.replyToken) {
-            await replyLineMessage(ev.replyToken, "メール形式で入力してください。例: staff@example.com");
+          const cc = parseLinkCodeCommand(text);
+          if (!lc && !cc && ev.replyToken) {
+            await replyLineMessage(
+              ev.replyToken,
+              "入力形式:\n1) 連携 123456（推奨）\n2) メール形式（例: staff@example.com）\n重複時は: 連携 staff@example.com elanbase"
+            );
+            replied = true;
+          }
+        }
+        const linkCode = parseLinkCodeCommand(text);
+        if (!replied && msgType === "text" && linkCode) {
+          const nowIso = new Date().toISOString();
+          const { data: codeRow, error: codeErr } = await admin
+            .from("line_link_codes")
+            .select("id, tenant_id, staff_id, email, expires_at, used_at, staff ( name, email )")
+            .eq("code", linkCode.code)
+            .is("used_at", null)
+            .gt("expires_at", nowIso)
+            .order("created_at", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          if (codeErr) {
+            status = "error";
+            note = `line_code_lookup:${codeErr.message}`;
+            if (ev.replyToken) {
+              await replyLineMessage(ev.replyToken, "連携コードの照合に失敗しました。時間をおいて再度お試しください。");
+              replied = true;
+            }
+          } else if (codeRow?.tenant_id && codeRow.staff_id) {
+            tenantId = codeRow.tenant_id;
+            const st = (
+              Array.isArray(codeRow.staff) ? codeRow.staff[0] : codeRow.staff
+            ) as { name?: string | null; email?: string | null } | null;
+            const { error: upErr } = await admin.from("line_user_links").upsert(
+              {
+                tenant_id: codeRow.tenant_id,
+                staff_id: codeRow.staff_id,
+                line_user_id: userId,
+                line_display_name: st?.name ?? null,
+              },
+              { onConflict: "tenant_id,line_user_id" }
+            );
+            if (upErr) {
+              status = "error";
+              note = `line_link_upsert_by_code:${upErr.message}`;
+              if (ev.replyToken) {
+                await replyLineMessage(ev.replyToken, "連携の保存に失敗しました。時間をおいて再度お試しください。");
+                replied = true;
+              }
+            } else {
+              await admin
+                .from("line_link_codes")
+                .update({
+                  used_at: nowIso,
+                  used_by_line_user_id: userId,
+                })
+                .eq("id", codeRow.id);
+              if (ev.replyToken) {
+                await replyLineMessage(
+                  ev.replyToken,
+                  `連携完了: ${st?.name ?? st?.email ?? codeRow.email}\n希望休は「希望休 YYYY-MM-DD 理由」で送信してください。`
+                );
+                replied = true;
+              }
+            }
+          } else if (ev.replyToken) {
+            await replyLineMessage(
+              ev.replyToken,
+              "連携コードが無効、期限切れ、または既に使用済みです。管理者へ再発行を依頼してください。"
+            );
             replied = true;
           }
         }
         const link = parseLinkCommand(text);
         if (!replied && msgType === "text" && link) {
-          const { data: staff } = await admin
+          const { data: staffRows, error: staffErr } = await admin
             .from("staff")
             .select("id, tenant_id, name, email")
-            .eq("email", link.email)
-            .maybeSingle();
-          if (staff?.id && staff.tenant_id) {
-            tenantId = staff.tenant_id;
-            await admin.from("line_user_links").upsert(
-              {
-                tenant_id: staff.tenant_id,
-                staff_id: staff.id,
-                line_user_id: userId,
-                line_display_name: staff.name ?? null,
-              },
-              { onConflict: "tenant_id,line_user_id" }
-            );
+            .ilike("email", link.email)
+            .limit(5);
+          if (staffErr) {
+            status = "error";
+            note = `staff_lookup:${staffErr.message}`;
             if (ev.replyToken) {
-              await replyLineMessage(
-                ev.replyToken,
-                `連携完了: ${staff.name ?? staff.email ?? "スタッフ"}\n希望休は「希望休 YYYY-MM-DD 理由」で送信してください。`
-              );
+              await replyLineMessage(ev.replyToken, "連携先の検索に失敗しました。時間をおいて再度お試しください。");
               replied = true;
             }
-            await admin
-              .from("line_input_sessions")
-              .delete()
-              .eq("tenant_id", staff.tenant_id)
-              .eq("line_user_id", userId);
-          } else if (ev.replyToken) {
-            await replyLineMessage(ev.replyToken, "連携対象のスタッフメールが見つかりませんでした。");
-            replied = true;
+          } else {
+            const rows = staffRows ?? [];
+            let tenantIdFromSlug: string | null = null;
+            if (link.tenantSlug) {
+              const { data: tenantRow } = await admin
+                .from("tenants")
+                .select("id")
+                .eq("slug", link.tenantSlug)
+                .maybeSingle();
+              tenantIdFromSlug = tenantRow?.id ?? null;
+            }
+            const filteredRows = tenantIdFromSlug
+              ? rows.filter((r) => r.tenant_id === tenantIdFromSlug)
+              : rows;
+            const staff =
+              filteredRows.find((r) => (tenantId ? r.tenant_id === tenantId : false)) ??
+              filteredRows[0] ??
+              null;
+            if (rows.length > 1 && !tenantId && !link.tenantSlug && ev.replyToken) {
+              await replyLineMessage(
+                ev.replyToken,
+                "同じメールが複数登録されています。\n「連携 メールアドレス テナントslug」で送信してください。\n例: 連携 staff@example.com elanbase"
+              );
+              replied = true;
+            } else if (link.tenantSlug && filteredRows.length === 0 && ev.replyToken) {
+              await replyLineMessage(
+                ev.replyToken,
+                "指定したテナントslugでスタッフが見つかりませんでした。管理者に slug を確認してください。"
+              );
+              replied = true;
+            } else if (staff?.id && staff.tenant_id) {
+              tenantId = staff.tenant_id;
+              const { error: linkErr } = await admin.from("line_user_links").upsert(
+                {
+                  tenant_id: staff.tenant_id,
+                  staff_id: staff.id,
+                  line_user_id: userId,
+                  line_display_name: staff.name ?? null,
+                },
+                { onConflict: "tenant_id,line_user_id" }
+              );
+              if (linkErr) {
+                status = "error";
+                note = `line_link_upsert:${linkErr.message}`;
+                if (ev.replyToken) {
+                  await replyLineMessage(ev.replyToken, "連携の保存に失敗しました。時間をおいて再度お試しください。");
+                  replied = true;
+                }
+              } else if (ev.replyToken) {
+                await replyLineMessage(
+                  ev.replyToken,
+                  `連携完了: ${staff.name ?? staff.email ?? "スタッフ"}\n希望休は「希望休 YYYY-MM-DD 理由」で送信してください。`
+                );
+                replied = true;
+              }
+              await admin
+                .from("line_input_sessions")
+                .delete()
+                .eq("tenant_id", staff.tenant_id)
+                .eq("line_user_id", userId);
+            } else if (ev.replyToken) {
+              await replyLineMessage(ev.replyToken, "連携対象のスタッフメールが見つかりませんでした。");
+              replied = true;
+            }
           }
         }
 
@@ -396,13 +510,23 @@ export async function POST(req: Request) {
         if (!replied && ev.replyToken) {
           await replyLineMessage(
             ev.replyToken,
-            "受付コマンド:\n1) 連携 メールアドレス\n2) 「シフト」（担当者へ通知）\n3) 領収書（画像受付）\n4) 希望休 YYYY-MM-DD 理由\n例) 希望休 2026-04-30 私用"
+            "受付コマンド:\n1) 連携 123456（管理者メールの6桁コード）\n2) 「シフト」（担当者へ通知）\n3) 領収書（画像受付）\n4) 希望休 YYYY-MM-DD 理由\n例) 希望休 2026-04-30 私用"
           );
         }
       }
     } catch (e) {
       status = "error";
       note = e instanceof Error ? e.message : "unknown_error";
+      if (ev.replyToken) {
+        try {
+          await replyLineMessage(
+            ev.replyToken,
+            "処理中にエラーが発生しました。時間をおいて再度お試しください。"
+          );
+        } catch {
+          // reply failure is logged via webhook note/status only
+        }
+      }
     }
 
     await admin.from("line_webhook_logs").insert({

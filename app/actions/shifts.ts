@@ -155,6 +155,35 @@ export async function publishDraftShiftsAction(formData: FormData) {
   redirect("/dashboard/shifts?published=1");
 }
 
+export async function publishSingleShiftAction(formData: FormData) {
+  const supabase = await createClient();
+  const profile = await getCurrentProfile(supabase);
+  if (!profile || !isAppManagerRole(profile.role)) {
+    redirect("/dashboard/shifts?error=権限がありません");
+  }
+  const shiftId = String(formData.get("shift_id") ?? "").trim();
+  if (!shiftId) redirect("/dashboard/shifts?error=shift_required");
+
+  const now = new Date().toISOString();
+  const { error } = await supabase
+    .from("project_shifts")
+    .update({
+      publish_status: "published",
+      published_at: now,
+      notified_at: now,
+      staff_response_status: "unread",
+    })
+    .eq("id", shiftId)
+    .neq("status", "cancelled");
+  if (error) {
+    redirect(`/dashboard/shifts?error=${encodeURIComponent(error.message)}`);
+  }
+
+  revalidatePath("/dashboard/shifts");
+  revalidatePath("/dashboard/attendance");
+  redirect("/dashboard/shifts?published_single=1");
+}
+
 export async function sendLineShiftBroadcastAction(formData: FormData) {
   const supabase = await createClient();
   const profile = await getCurrentProfile(supabase);
@@ -247,6 +276,88 @@ export async function sendLineShiftBroadcastAction(formData: FormData) {
 
   revalidatePath("/dashboard/shifts");
   redirect(`/dashboard/shifts?line_sent=${sent}`);
+}
+
+export async function sendLineSingleConfirmedShiftAction(formData: FormData) {
+  const supabase = await createClient();
+  const profile = await getCurrentProfile(supabase);
+  if (!profile || !isAppManagerRole(profile.role)) {
+    redirect("/dashboard/shifts?error=権限がありません");
+  }
+  if (!isLineConfigured()) {
+    redirect("/dashboard/shifts?error=LINE設定が未完了です");
+  }
+
+  const shiftId = String(formData.get("shift_id") ?? "").trim();
+  if (!shiftId) redirect("/dashboard/shifts?error=shift_required");
+
+  const { data: row, error: rowErr } = await supabase
+    .from("project_shifts")
+    .select(
+      `
+      id, staff_id, scheduled_start_at, scheduled_end_at, role, publish_status, status,
+      projects ( title )
+    `
+    )
+    .eq("id", shiftId)
+    .maybeSingle();
+  if (rowErr || !row) {
+    redirect("/dashboard/shifts?error=shift_not_found");
+  }
+  if (row.status === "cancelled") {
+    redirect("/dashboard/shifts?error=cancelled_shift");
+  }
+  if (row.publish_status !== "published") {
+    redirect("/dashboard/shifts?error=確定（公開）済みシフトのみ送信できます");
+  }
+
+  const { data: link } = await supabase
+    .from("line_user_links")
+    .select("line_user_id")
+    .eq("staff_id", row.staff_id)
+    .maybeSingle();
+  if (!link?.line_user_id) {
+    redirect("/dashboard/shifts?error=LINE未連携スタッフです");
+  }
+
+  const projectRel = row.projects as { title?: string }[] | { title?: string } | null;
+  const projectTitle = Array.isArray(projectRel) ? projectRel[0]?.title : projectRel?.title;
+  const msg = [
+    "【確定シフト】",
+    `案件: ${projectTitle ?? "案件未設定"}`,
+    `日時: ${new Date(row.scheduled_start_at).toLocaleString("ja-JP", {
+      timeZone: "Asia/Tokyo",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    })} - ${new Date(row.scheduled_end_at).toLocaleTimeString("ja-JP", {
+      timeZone: "Asia/Tokyo",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    })}`,
+    `役割: ${row.role === "leader" ? "リーダー" : "ヘルパー"}`,
+  ].join("\n");
+
+  const result = await pushLineMessages([link.line_user_id], [{ type: "text", text: msg }]);
+  await supabase.from("line_shift_notifications").insert({
+    tenant_id: profile.tenant_id,
+    shift_id: row.id,
+    staff_id: row.staff_id,
+    line_user_id: link.line_user_id,
+    notification_type: "shift_confirmed_single",
+    message: msg,
+    status: result.ok ? "sent" : "error",
+    provider_message_id: result.ok ? "line_multicast" : null,
+  });
+
+  revalidatePath("/dashboard/shifts");
+  if (!result.ok) {
+    redirect(`/dashboard/shifts?error=${encodeURIComponent(`LINE送信に失敗しました: ${result.responseText}`)}`);
+  }
+  redirect("/dashboard/shifts?line_single_sent=1");
 }
 
 export async function syncShiftsToGoogleCalendarAction(formData: FormData) {

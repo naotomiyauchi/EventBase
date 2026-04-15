@@ -49,7 +49,7 @@ export default async function ShiftBoardPage({
     return `${y}-${String(m).padStart(2, "0")}-${dd}`;
   });
 
-  const [staffRes, projRes, shiftRes] = await Promise.all([
+  const [staffRes, projRes, shiftRes, unavailableRes] = await Promise.all([
     supabase.from("staff").select("id, name").order("name"),
     supabase.from("projects").select("id, title").order("updated_at", { ascending: false }).limit(500),
     supabase
@@ -58,6 +58,11 @@ export default async function ShiftBoardPage({
       .gte("shift_date", dateList[0])
       .lte("shift_date", dateList[dateList.length - 1])
       .neq("status", "cancelled"),
+    supabase
+      .from("staff_unavailable_dates")
+      .select("staff_id, unavailable_date, reason")
+      .gte("unavailable_date", dateList[0])
+      .lte("unavailable_date", dateList[dateList.length - 1]),
   ]);
 
   const staffs = (staffRes.data ?? []) as { id: string; name: string }[];
@@ -68,10 +73,19 @@ export default async function ShiftBoardPage({
     project_id: string;
     role: "leader" | "helper";
   }[];
+  const unavailable = (unavailableRes.data ?? []) as {
+    staff_id: string;
+    unavailable_date: string;
+    reason: string | null;
+  }[];
 
   const shiftMap = new Map<string, { projectId: string; role: "leader" | "helper" }>();
   for (const s of shifts) {
     shiftMap.set(`${s.staff_id}:${s.shift_date}`, { projectId: s.project_id, role: s.role });
+  }
+  const unavailableMap = new Map<string, string | null>();
+  for (const u of unavailable) {
+    unavailableMap.set(`${u.staff_id}:${u.unavailable_date}`, u.reason ?? null);
   }
 
   return (
@@ -138,6 +152,8 @@ export default async function ShiftBoardPage({
                     </td>
                     {staffs.map((s) => {
                       const cur = shiftMap.get(`${s.id}:${d}`) ?? null;
+                      const unavailableReason = unavailableMap.get(`${s.id}:${d}`);
+                      const isUnavailable = unavailableReason !== undefined;
                       return (
                         <td key={`${s.id}:${d}`} className="border-b border-r p-2 align-top">
                           <ShiftBoardCell
@@ -146,6 +162,8 @@ export default async function ShiftBoardPage({
                             currentProjectId={cur?.projectId ?? null}
                             currentRole={cur?.role ?? null}
                             projects={projects}
+                            isUnavailable={isUnavailable}
+                            unavailableReason={unavailableReason ?? null}
                           />
                         </td>
                       );

@@ -3,18 +3,19 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/auth-profile";
 import { isAppManagerRole } from "@/lib/app-role";
+import { sendLineLinkCodeAction } from "@/app/actions/line-link";
 
 export default async function LineSettingsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; code_sent?: string }>;
 }) {
   const sp = await searchParams;
   const supabase = await createClient();
   const profile = await getCurrentProfile(supabase);
   if (!profile || !isAppManagerRole(profile.role)) notFound();
 
-  const [{ data: links }, { data: logs }] = await Promise.all([
+  const [{ data: links }, { data: logs }, { data: staffRows }, { data: codes }] = await Promise.all([
     supabase
       .from("line_user_links")
       .select("staff ( name, email ), line_user_id, linked_at")
@@ -23,6 +24,18 @@ export default async function LineSettingsPage({
     supabase
       .from("line_webhook_logs")
       .select("event_type, line_user_id, status, note, created_at")
+      .order("created_at", { ascending: false })
+      .limit(20),
+    supabase
+      .from("staff")
+      .select("id, name, email")
+      .eq("tenant_id", profile.tenant_id)
+      .order("name", { ascending: true })
+      .limit(100),
+    supabase
+      .from("line_link_codes")
+      .select("id, email, code, expires_at, used_at, created_at")
+      .eq("tenant_id", profile.tenant_id)
       .order("created_at", { ascending: false })
       .limit(20),
   ]);
@@ -41,72 +54,42 @@ export default async function LineSettingsPage({
           {decodeURIComponent(sp.error)}
         </p>
       ) : null}
+      {sp.code_sent ? (
+        <p className="text-sm text-green-600 dark:text-green-400">連携コードメールを送信しました。</p>
+      ) : null}
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">このシステムと連携するリッチメニューの作り方</CardTitle>
+          <CardTitle className="text-base">6桁コードをメール送信（推奨）</CardTitle>
           <CardDescription>
-            LINE Official Account Manager または LINE Developers のリッチメニュー機能で、手動作成・公開します。
+            スタッフへ「連携 123456」形式のコードを送信します。スタッフは公式LINEにコードを送るだけで連携できます。
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4 text-sm">
-          <ol className="list-decimal space-y-2 pl-5 text-muted-foreground">
-            <li>
-              <span className="text-foreground">サイズ</span>
-              ：テンプレートは LINE の指定サイズに合わせます（例: フル幅 2500×1686）。画像をアップロードし、タップ領域を配置します。
-            </li>
-            <li>
-              <span className="text-foreground">アクション種別</span>
-              ：各ボタンは「
-              <strong className="text-foreground">メッセージを送信</strong>
-              」（Messaging API では <code className="text-xs">type: message</code>
-              ）にします。URI オープンやポストバックだけでは、本システムの会話フローは動きません。
-            </li>
-            <li>
-              <span className="text-foreground">送信テキスト（必ず一致）</span>
-              ：ボタンごとに送る文字列は次のいずれかと
-              <strong className="text-foreground">完全一致</strong>
-              にしてください（前後に空白・改行を付けない）。
-              <ul className="mt-2 list-disc space-y-1 pl-5 font-mono text-xs text-foreground">
-                <li>
-                  <code>連携設定</code> … スタッフがメールアドレスを送る前の案内を返します。
-                </li>
-                <li>
-                  <code>希望休入力</code> … 希望休の入力モードに入ります。
-                </li>
-                <li>
-                  <code>使い方</code> … 簡易ヘルプを返します（<code>help</code> / <code>ヘルプ</code> でも可）。
-                </li>
-                <li>
-                  <code>シフト</code> … 連携済みの場合、管理画面の「通知」に届きます（希望休入力モードには入りません）。
-                </li>
-              </ul>
-            </li>
-            <li>
-              <span className="text-foreground">希望休の送り方（メッセージ本文）</span>
-              ：モード案内後、ユーザーが送るテキスト例は{" "}
-              <code className="text-xs">2026-04-30 私用</code> または{" "}
-              <code className="text-xs">希望休 2026-04-30 私用</code> です。
-            </li>
-            <li>
-              <span className="text-foreground">領収書（任意）</span>
-              ：トークで <code className="text-xs">領収書</code> などと送ると画像受付モードに入ります。リッチメニューに同じ文言のボタンを付けても構いません。
-            </li>
-            <li>
-              <span className="text-foreground">公開</span>
-              ：リッチメニューを作成したら、デフォルト表示や対象ユーザーへのリンクを LINE 管理画面で有効化します。
-            </li>
-          </ol>
+        <CardContent className="space-y-2">
+          {(staffRows ?? []).length === 0 ? (
+            <p className="text-sm text-muted-foreground">送信対象スタッフが見つかりません。</p>
+          ) : (
+            (staffRows ?? []).map((s) => (
+              <div key={s.id} className="flex items-center justify-between gap-3 rounded border px-3 py-2 text-sm">
+                <div>
+                  <p className="font-medium">{s.name || "名前未設定"}</p>
+                  <p className="text-xs text-muted-foreground">{s.email || "メール未設定"}</p>
+                </div>
+                <form action={sendLineLinkCodeAction}>
+                  <input type="hidden" name="staff_id" value={s.id} />
+                  <button
+                    type="submit"
+                    disabled={!s.email}
+                    className="inline-flex h-8 min-w-24 items-center justify-center rounded-md border border-zinc-500 bg-zinc-900 px-3 text-xs font-medium text-white hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    コード送信
+                  </button>
+                </form>
+              </div>
+            ))
+          )}
           <p className="text-xs text-muted-foreground">
-            公式ドキュメント:{" "}
-            <a
-              href="https://developers.line.biz/ja/docs/messaging-api/use-rich-menus/"
-              className="underline underline-offset-2"
-              target="_blank"
-              rel="noreferrer"
-            >
-              リッチメニューの使い方（LINE Developers）
-            </a>
+            スタッフ操作: メール受信後、公式LINEに <code>連携 123456</code> を送信（コードは30分で失効）
           </p>
         </CardContent>
       </Card>
@@ -149,6 +132,28 @@ export default async function LineSettingsPage({
                 </p>
                 <p className="text-muted-foreground">
                   {l.line_user_id ?? "line_user_idなし"} {l.note ? `/ ${l.note}` : ""}
+                </p>
+              </div>
+            ))
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">連携コード発行履歴（最新20件）</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          {(codes ?? []).length === 0 ? (
+            <p className="text-sm text-muted-foreground">履歴はまだありません。</p>
+          ) : (
+            (codes ?? []).map((c) => (
+              <div key={c.id} className="rounded border px-3 py-2 text-xs">
+                <p>
+                  {c.created_at} / {c.email} / code: {c.code}
+                </p>
+                <p className="text-muted-foreground">
+                  expires: {c.expires_at} / {c.used_at ? `used: ${c.used_at}` : "unused"}
                 </p>
               </div>
             ))

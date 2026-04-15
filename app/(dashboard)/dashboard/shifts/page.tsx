@@ -8,7 +8,9 @@ import { getCurrentProfile } from "@/lib/auth-profile";
 import { createClient } from "@/lib/supabase/server";
 import {
   createShiftAction,
+  publishSingleShiftAction,
   publishDraftShiftsAction,
+  sendLineSingleConfirmedShiftAction,
   sendLineShiftBroadcastAction,
   sendShiftReminderAction,
   syncShiftsToGoogleCalendarAction,
@@ -38,7 +40,9 @@ export default async function ShiftManagementPage({
     created?: string;
     reminded?: string;
     line_sent?: string;
+    line_single_sent?: string;
     published?: string;
+    published_single?: string;
     synced?: string;
     gcal_created?: string;
     gcal_updated?: string;
@@ -82,7 +86,14 @@ export default async function ShiftManagementPage({
         .limit(200),
       supabase
         .from("staff_unavailable_dates")
-        .select("staff_id, unavailable_date")
+        .select(
+          `
+          staff_id,
+          unavailable_date,
+          reason,
+          staff ( name, email )
+        `
+        )
         .gte(
           "unavailable_date",
           new Intl.DateTimeFormat("en-CA", {
@@ -96,6 +107,7 @@ export default async function ShiftManagementPage({
     ]);
 
   const ngSet = new Set((ngs ?? []).map((x) => `${x.staff_id}:${x.unavailable_date}`));
+  const publishedShiftOptions = (shifts ?? []).filter((s) => s.publish_status === "published");
 
   return (
     <div className="space-y-6">
@@ -112,6 +124,9 @@ export default async function ShiftManagementPage({
           下書きシフトを一括公開しました（通知送信記録つき）。
         </p>
       )}
+      {sp.published_single && (
+        <p className="text-sm text-green-600 dark:text-green-400">シフトを公開しました。</p>
+      )}
       {sp.synced && (
         <p className="text-sm text-green-600 dark:text-green-400">
           Googleカレンダー同期完了（新規: {sp.gcal_created ?? "0"}件 / 更新: {sp.gcal_updated ?? "0"}件）
@@ -121,6 +136,11 @@ export default async function ShiftManagementPage({
       {sp.line_sent && (
         <p className="text-sm text-green-600 dark:text-green-400">
           LINEへシフト通知を送信しました（{sp.line_sent}件）。
+        </p>
+      )}
+      {sp.line_single_sent === "1" && (
+        <p className="text-sm text-green-600 dark:text-green-400">
+          本人へ確定シフトを送信しました。
         </p>
       )}
       {sp.error && (
@@ -221,6 +241,42 @@ export default async function ShiftManagementPage({
 
       <Card>
         <CardHeader>
+          <CardTitle className="text-base">希望休一覧（スタッフ入力 / LINE入力）</CardTitle>
+          <CardDescription>
+            ここに表示される希望休は、シフト作成時に自動でNG判定されます。
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          {(ngs ?? []).length === 0 ? (
+            <p className="text-sm text-muted-foreground">今後の希望休は登録されていません。</p>
+          ) : (
+            (ngs ?? [])
+              .sort((a, b) => a.unavailable_date.localeCompare(b.unavailable_date))
+              .map((n, i) => {
+                const staff = firstRel<{ name?: string; email?: string }>(
+                  n.staff as { name?: string; email?: string }[] | { name?: string; email?: string } | null
+                );
+                return (
+                  <div
+                    key={`${n.staff_id}-${n.unavailable_date}-${i}`}
+                    className="rounded border px-3 py-2 text-sm"
+                  >
+                    <p className="font-medium">
+                      {staff?.name ?? "スタッフ不明"} / {n.unavailable_date}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {staff?.email ?? "メール未設定"}
+                      {n.reason ? ` / 理由: ${n.reason}` : ""}
+                    </p>
+                  </div>
+                );
+              })
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
           <CardTitle className="text-base">シフト公開（一括）</CardTitle>
           <CardDescription>
             期間内の下書きシフトを公開ステータスへ変更し、通知送信時刻を記録します。
@@ -248,6 +304,48 @@ export default async function ShiftManagementPage({
             <Input name="end_date" type="date" required />
             <Button type="submit">LINEへ送信</Button>
           </form>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">本人へ確定シフト送信（単発）</CardTitle>
+          <CardDescription>
+            公開済みシフトを1件選んで、対象スタッフ本人にLINE送信します。
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {publishedShiftOptions.length === 0 ? (
+            <p className="text-sm text-muted-foreground">公開済みシフトがありません。</p>
+          ) : (
+            <form action={sendLineSingleConfirmedShiftAction} className="grid gap-3 sm:grid-cols-[1fr_auto]">
+              <select
+                name="shift_id"
+                required
+                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs outline-none"
+                defaultValue=""
+              >
+                <option value="" disabled>
+                  送信する確定シフトを選択
+                </option>
+                {publishedShiftOptions.map((s) => {
+                  const staffName =
+                    firstRel<{ name?: string }>(s.staff as { name?: string }[] | { name?: string } | null)
+                      ?.name ?? "—";
+                  const projectTitle =
+                    firstRel<{ title?: string }>(
+                      s.projects as { title?: string }[] | { title?: string } | null
+                    )?.title ?? "—";
+                  return (
+                    <option key={s.id} value={s.id}>
+                      {dt(s.scheduled_start_at)} / {projectTitle} / {staffName}
+                    </option>
+                  );
+                })}
+              </select>
+              <Button type="submit">本人へ確定シフト送信</Button>
+            </form>
+          )}
         </CardContent>
       </Card>
 
@@ -303,14 +401,32 @@ export default async function ShiftManagementPage({
                       {isNg ? " / NG日注意" : ""}
                     </p>
                   </div>
-                  {!s.staff_confirmed_at && (
-                    <form action={sendShiftReminderAction}>
-                      <input type="hidden" name="shift_id" value={s.id} />
-                      <Button type="submit" size="sm" variant="outline">
-                        前日確認リマインド
-                      </Button>
-                    </form>
-                  )}
+                  <div className="flex items-center gap-2">
+                    {s.publish_status !== "published" ? (
+                      <form action={publishSingleShiftAction}>
+                        <input type="hidden" name="shift_id" value={s.id} />
+                        <Button type="submit" size="sm" variant="secondary">
+                          公開にする
+                        </Button>
+                      </form>
+                    ) : null}
+                    {!s.staff_confirmed_at && (
+                      <form action={sendShiftReminderAction}>
+                        <input type="hidden" name="shift_id" value={s.id} />
+                        <Button type="submit" size="sm" variant="outline">
+                          前日確認リマインド
+                        </Button>
+                      </form>
+                    )}
+                    {s.publish_status === "published" ? (
+                      <form action={sendLineSingleConfirmedShiftAction}>
+                        <input type="hidden" name="shift_id" value={s.id} />
+                        <Button type="submit" size="sm">
+                          本人へ確定シフト送信
+                        </Button>
+                      </form>
+                    ) : null}
+                  </div>
                 </div>
               );
             })

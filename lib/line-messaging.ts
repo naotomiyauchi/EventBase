@@ -62,14 +62,29 @@ export function parseUnavailableCommand(text: string): { date: string; reason: s
   return null;
 }
 
-export function parseLinkCommand(text: string): { email: string } | null {
-  const t = text.trim();
-  const m = t.match(/^連携\s+([^\s]+@[^\s]+)$/);
-  if (m) return { email: m[1].toLowerCase() };
+export function parseLinkCommand(text: string): { email: string; tenantSlug?: string } | null {
+  const t = text.replace(/[\u200B-\u200D\uFEFF]/g, "").normalize("NFKC").trim();
+  const m = t.match(/^連携\s+([^\s]+@[^\s]+)(?:\s+([a-z0-9-]+))?$/i);
+  if (m) {
+    return {
+      email: m[1].toLowerCase(),
+      tenantSlug: m[2]?.toLowerCase(),
+    };
+  }
   // 名前付き入力など（例: "宮内 直人 naotomiyauchi.1207@gmail.com"）
   const e = t.match(/([A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,})/i);
   if (!e) return null;
-  return { email: e[1].toLowerCase() };
+  // メール以降の末尾語を tenant slug 候補として扱う（例: "... user@example.com elanbase"）
+  const tail = t.slice(t.indexOf(e[1]) + e[1].length).trim();
+  const slug = tail.match(/^([a-z0-9-]+)$/i)?.[1]?.toLowerCase();
+  return { email: e[1].toLowerCase(), tenantSlug: slug };
+}
+
+export function parseLinkCodeCommand(text: string): { code: string } | null {
+  const t = text.replace(/[\u200B-\u200D\uFEFF]/g, "").normalize("NFKC").trim();
+  const m = t.match(/^(?:連携\s*)?([0-9]{6})$/);
+  if (!m) return null;
+  return { code: m[1] };
 }
 
 /** Normalize LINE user text (NFKC, strip zero-width) for keyword matching */

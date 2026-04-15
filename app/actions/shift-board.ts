@@ -41,6 +41,18 @@ export async function setShiftBoardCellAction(formData: FormData) {
     return;
   }
 
+  const { data: ngRow } = await supabase
+    .from("staff_unavailable_dates")
+    .select("id")
+    .eq("staff_id", staffId)
+    .eq("unavailable_date", shiftDate)
+    .maybeSingle();
+  if (ngRow?.id) {
+    // 希望休は shift-board 上で表示・ブロックし、誤って保存されないようサーバー側でも防ぐ
+    revalidatePath("/dashboard/shift-board");
+    return;
+  }
+
   const startIso = isoFromJstDateAndTime(shiftDate, "10:00");
   const endIso = isoFromJstDateAndTime(shiftDate, "18:00");
 

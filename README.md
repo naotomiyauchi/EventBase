@@ -41,6 +41,8 @@ cp .env.example .env.local
 - `LINE_CHANNEL_ACCESS_TOKEN`
 - `LINE_CHANNEL_SECRET`
 - `SUPABASE_SERVICE_ROLE_KEY`（Webhookで希望休登録を行うため）
+- `RESEND_API_KEY`（6桁連携コードメール送信）
+- `LINE_LINK_MAIL_FROM`（例: `EventBase <no-reply@example.com>`）
 
 Webhook URL（LINE Developers 側）:
 
@@ -54,7 +56,7 @@ Webhook URL（LINE Developers 側）:
 
 | ボタン例 | 送信するテキスト | 続けてユーザーが送る内容 |
 |----------|------------------|---------------------------|
-| 連携設定 | `連携設定` | スタッフ登録メール（例: `staff@example.com`） |
+| 連携設定 | `連携設定` | 管理者メールの6桁コード（例: `連携 123456`） |
 | 希望休入力 | `希望休入力` | `2026-04-30 私用` または `希望休 2026-04-30 私用` |
 | 使い方 | `使い方`（または `help` / `ヘルプ`） | 案内のみ |
 
@@ -63,5 +65,7 @@ Webhook URL（LINE Developers 側）:
 運用の流れ:
 
 1. 上記どおりリッチメニューを LINE 側で作成・公開する。
-2. スタッフは「連携設定」→ メール送信、「希望休入力」→ 日付と理由を送信。
-3. 管理画面「シフト管理」の「LINE一斉通知」から期間指定で通知送信。
+2. 管理者が `/dashboard/settings/line` で対象スタッフへ連携コードメールを送信。
+3. スタッフはLINEで `連携 123456` を送信し連携完了。
+4. スタッフは「希望休入力」→ 日付と理由を送信。
+5. 管理画面「シフト管理」の「LINE一斉通知」から期間指定で通知送信。

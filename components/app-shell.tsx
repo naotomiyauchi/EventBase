@@ -48,7 +48,7 @@ const baseGroups = [
     items: [
       { href: "/dashboard/staff", label: "スタッフ情報", icon: Users },
       { href: "/dashboard/attendance", label: "打刻", icon: Clock3 },
-      { href: "/dashboard/my-shifts", label: "シフト", icon: CalendarDays },
+      { href: "/dashboard/my-shifts", label: "マイシフト", icon: CalendarDays },
     ],
   },
 ];
@@ -97,6 +97,7 @@ export function AppShell({
           g.key === "staff" && showSettingsNav
             ? [
                 ...items,
+                { href: "/dashboard/shifts", label: "シフト管理", icon: CalendarDays },
                 { href: "/dashboard/shift-board", label: "シフト表（管理）", icon: CalendarDays },
               ]
             : items,

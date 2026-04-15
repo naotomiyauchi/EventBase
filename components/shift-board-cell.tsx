@@ -9,6 +9,8 @@ type Props = {
   currentProjectId: string | null;
   currentRole: "leader" | "helper" | null;
   projects: { id: string; title: string }[];
+  isUnavailable?: boolean;
+  unavailableReason?: string | null;
 };
 
 export function ShiftBoardCell({
@@ -17,6 +19,8 @@ export function ShiftBoardCell({
   currentProjectId,
   currentRole,
   projects,
+  isUnavailable = false,
+  unavailableReason = null,
 }: Props) {
   const [pending, startTransition] = useTransition();
 
@@ -29,7 +33,7 @@ export function ShiftBoardCell({
   return (
     <div className="flex flex-col gap-1">
       <select
-        disabled={pending}
+        disabled={pending || isUnavailable}
         value={currentProjectId ?? ""}
         onChange={(e) => {
           const fd = new FormData();
@@ -50,7 +54,7 @@ export function ShiftBoardCell({
       </select>
       {currentProjectId && (
         <select
-          disabled={pending}
+          disabled={pending || isUnavailable}
           value={currentRole ?? "helper"}
           onChange={(e) => {
             const fd = new FormData();
@@ -66,6 +70,11 @@ export function ShiftBoardCell({
           <option value="helper">ヘルパー</option>
         </select>
       )}
+      {isUnavailable ? (
+        <p className="rounded border border-red-200 bg-red-50 px-2 py-1 text-xs text-red-700 dark:border-red-900/60 dark:bg-red-950/30 dark:text-red-300">
+          希望休{unavailableReason ? `: ${unavailableReason}` : ""}
+        </p>
+      ) : null}
     </div>
   );
 }
