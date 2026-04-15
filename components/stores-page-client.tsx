@@ -160,10 +160,12 @@ export function StoresPageClient({
   stores,
   agencies,
   canMutate,
+  returnTo = "projects",
 }: {
   stores: StoreRow[];
   agencies: AgencyOption[];
   canMutate: boolean;
+  returnTo?: "projects" | "masters";
 }) {
   const [createOpen, setCreateOpen] = useState(false);
   const [detailOpen, setDetailOpen] = useState(false);
@@ -182,8 +184,12 @@ export function StoresPageClient({
     <div className="space-y-3">
       <div className="flex items-center justify-between gap-2">
         <h2 className="text-sm font-medium text-muted-foreground">登録済み</h2>
-        <Button onClick={() => setCreateOpen(true)} disabled={!canMutate}>
-          イベントを追加
+        <Button
+          onClick={() => setCreateOpen(true)}
+          disabled={!canMutate}
+          className="h-10 rounded-lg border border-primary/40 px-4 text-white shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary/70 hover:shadow-md hover:text-white"
+        >
+          店舗を追加
         </Button>
       </div>
 
@@ -257,6 +263,7 @@ export function StoresPageClient({
             </DialogDescription>
           </DialogHeader>
           <form action={createStore} className="space-y-4">
+            <input type="hidden" name="return_to" value={returnTo} />
             <StoreFormFields agencies={agencies} disabled={!canMutate} />
             <div className="flex justify-end gap-2">
               <Button type="submit" disabled={!canMutate}>
@@ -335,6 +342,7 @@ export function StoresPageClient({
           ) : (
             <form action={updateStore} className="space-y-4">
               <input type="hidden" name="id" value={selected.id} />
+              <input type="hidden" name="return_to" value={returnTo} />
               <StoreFormFields
                 agencies={agencies}
                 defaults={selected}
@@ -363,6 +371,7 @@ export function StoresPageClient({
           ) : (
             <form action={deleteStore} className="space-y-3">
               <input type="hidden" name="id" value={selected.id} />
+              <input type="hidden" name="return_to" value={returnTo} />
               <div className="rounded-lg border p-3 text-sm">
                 <p className="font-medium">{selected.name}</p>
                 <p className="text-xs text-muted-foreground">

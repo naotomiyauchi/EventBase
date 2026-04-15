@@ -126,6 +126,19 @@ export default async function RegisterStaffPage({
                 ))}
               </select>
             </div>
+            <label className="flex items-start gap-2 rounded-md border p-3 sm:col-span-2">
+              <input
+                type="checkbox"
+                name="send_google_guide"
+                value="1"
+                defaultChecked
+                disabled={!serviceOk}
+                className="mt-0.5 h-4 w-4 rounded border-input"
+              />
+              <span className="text-sm text-muted-foreground">
+                登録と同時に Google 連携通知を送信する
+              </span>
+            </label>
           </CardContent>
         </Card>
 

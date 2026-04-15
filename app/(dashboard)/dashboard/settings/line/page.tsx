@@ -5,6 +5,26 @@ import { getCurrentProfile } from "@/lib/auth-profile";
 import { isAppManagerRole } from "@/lib/app-role";
 import { sendLineLinkCodeAction } from "@/app/actions/line-link";
 
+function jpDate(value: string | null): string {
+  if (!value) return "—";
+  return new Intl.DateTimeFormat("ja-JP", {
+    timeZone: "Asia/Tokyo",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date(value));
+}
+
+function jpTime(value: string | null): string {
+  if (!value) return "—";
+  return new Intl.DateTimeFormat("ja-JP", {
+    timeZone: "Asia/Tokyo",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).format(new Date(value));
+}
+
 export default async function LineSettingsPage({
   searchParams,
 }: {
@@ -15,17 +35,12 @@ export default async function LineSettingsPage({
   const profile = await getCurrentProfile(supabase);
   if (!profile || !isAppManagerRole(profile.role)) notFound();
 
-  const [{ data: links }, { data: logs }, { data: staffRows }, { data: codes }] = await Promise.all([
+  const [{ data: links }, { data: staffRows }, { data: codes }] = await Promise.all([
     supabase
       .from("line_user_links")
       .select("staff ( name, email ), line_user_id, linked_at")
       .order("linked_at", { ascending: false })
       .limit(50),
-    supabase
-      .from("line_webhook_logs")
-      .select("event_type, line_user_id, status, note, created_at")
-      .order("created_at", { ascending: false })
-      .limit(20),
     supabase
       .from("staff")
       .select("id, name, email")
@@ -39,10 +54,15 @@ export default async function LineSettingsPage({
       .order("created_at", { ascending: false })
       .limit(20),
   ]);
+  const nameByEmail = new Map(
+    (staffRows ?? [])
+      .filter((s) => s.email)
+      .map((s) => [String(s.email).toLowerCase(), s.name || "名前未設定"])
+  );
 
   return (
     <div className="space-y-6">
-      <div>
+      <div className="rounded-2xl border bg-linear-to-b from-card to-card/60 p-5 shadow-xs">
         <h2 className="text-lg font-semibold tracking-tight">LINE連携</h2>
         <p className="text-sm text-muted-foreground">
           リッチメニューは LINE 側で作成し、下記の「送信する文言」と一致させてください。Webhook がメッセージ内容で連携・希望休などを判別します。
@@ -55,46 +75,53 @@ export default async function LineSettingsPage({
         </p>
       ) : null}
       {sp.code_sent ? (
-        <p className="text-sm text-green-600 dark:text-green-400">連携コードメールを送信しました。</p>
+        <p className="text-sm text-green-600 dark:text-green-400">連携コードを生成しました。</p>
       ) : null}
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">6桁コードをメール送信（推奨）</CardTitle>
-          <CardDescription>
-            スタッフへ「連携 123456」形式のコードを送信します。スタッフは公式LINEにコードを送るだけで連携できます。
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-2">
-          {(staffRows ?? []).length === 0 ? (
-            <p className="text-sm text-muted-foreground">送信対象スタッフが見つかりません。</p>
-          ) : (
-            (staffRows ?? []).map((s) => (
-              <div key={s.id} className="flex items-center justify-between gap-3 rounded border px-3 py-2 text-sm">
-                <div>
-                  <p className="font-medium">{s.name || "名前未設定"}</p>
-                  <p className="text-xs text-muted-foreground">{s.email || "メール未設定"}</p>
-                </div>
-                <form action={sendLineLinkCodeAction}>
-                  <input type="hidden" name="staff_id" value={s.id} />
-                  <button
-                    type="submit"
-                    disabled={!s.email}
-                    className="inline-flex h-8 min-w-24 items-center justify-center rounded-md border border-zinc-500 bg-zinc-900 px-3 text-xs font-medium text-white hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    コード送信
-                  </button>
-                </form>
-              </div>
-            ))
-          )}
-          <p className="text-xs text-muted-foreground">
-            スタッフ操作: メール受信後、公式LINEに <code>連携 123456</code> を送信（コードは30分で失効）
-          </p>
-        </CardContent>
-      </Card>
+      <details className="rounded-2xl border bg-card/70 shadow-xs">
+        <summary className="cursor-pointer list-none px-4 py-3 text-sm font-semibold hover:bg-muted/40">
+          LINE連携を開始する
+        </summary>
+        <div className="border-t p-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">6桁コードを生成</CardTitle>
+              <CardDescription>
+                スタッフへ「連携 123456」形式のコードを送信します。スタッフは公式LINEにコードを送るだけで連携できます。
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {(staffRows ?? []).length === 0 ? (
+                <p className="text-sm text-muted-foreground">送信対象スタッフが見つかりません。</p>
+              ) : (
+                (staffRows ?? []).map((s) => (
+                  <div key={s.id} className="flex items-center justify-between gap-3 rounded-xl border px-3 py-2 text-sm">
+                    <div>
+                      <p className="font-medium">{s.name || "名前未設定"}</p>
+                      <p className="text-xs text-muted-foreground">{s.email || "メール未設定"}</p>
+                    </div>
+                    <form action={sendLineLinkCodeAction}>
+                      <input type="hidden" name="staff_id" value={s.id} />
+                      <button
+                        type="submit"
+                        disabled={!s.email}
+                        className="inline-flex h-8 min-w-24 items-center justify-center rounded-md border border-transparent bg-primary px-3 text-xs font-medium text-primary-foreground hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        コード生成
+                      </button>
+                    </form>
+                  </div>
+                ))
+              )}
+              <p className="text-xs text-muted-foreground">
+                スタッフ操作: メール受信後、公式LINEに <code>連携 123456</code> を送信（コードは30分で失効）
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      </details>
 
-      <Card>
+      <Card className="shadow-xs">
         <CardHeader>
           <CardTitle className="text-base">連携済みスタッフ</CardTitle>
         </CardHeader>
@@ -105,7 +132,7 @@ export default async function LineSettingsPage({
             (links ?? []).map((l, i) => {
               const s = Array.isArray(l.staff) ? l.staff[0] : l.staff;
               return (
-                <div key={`${l.line_user_id}-${i}`} className="rounded border px-3 py-2 text-sm">
+                <div key={`${l.line_user_id}-${i}`} className="rounded-xl border px-3 py-2 text-sm">
                   <p className="font-medium">{s?.name ?? "スタッフ不明"}</p>
                   <p className="text-xs text-muted-foreground">
                     {s?.email ?? "メール未設定"} / LINE: {l.line_user_id}
@@ -117,29 +144,7 @@ export default async function LineSettingsPage({
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Webhookログ（最新20件）</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-2">
-          {(logs ?? []).length === 0 ? (
-            <p className="text-sm text-muted-foreground">ログはまだありません。</p>
-          ) : (
-            (logs ?? []).map((l, i) => (
-              <div key={`${l.created_at}-${i}`} className="rounded border px-3 py-2 text-xs">
-                <p>
-                  {l.created_at} / {l.event_type} / {l.status}
-                </p>
-                <p className="text-muted-foreground">
-                  {l.line_user_id ?? "line_user_idなし"} {l.note ? `/ ${l.note}` : ""}
-                </p>
-              </div>
-            ))
-          )}
-        </CardContent>
-      </Card>
-
-      <Card>
+      <Card className="shadow-xs">
         <CardHeader>
           <CardTitle className="text-base">連携コード発行履歴（最新20件）</CardTitle>
         </CardHeader>
@@ -147,16 +152,16 @@ export default async function LineSettingsPage({
           {(codes ?? []).length === 0 ? (
             <p className="text-sm text-muted-foreground">履歴はまだありません。</p>
           ) : (
-            (codes ?? []).map((c) => (
-              <div key={c.id} className="rounded border px-3 py-2 text-xs">
-                <p>
-                  {c.created_at} / {c.email} / code: {c.code}
-                </p>
-                <p className="text-muted-foreground">
-                  expires: {c.expires_at} / {c.used_at ? `used: ${c.used_at}` : "unused"}
-                </p>
-              </div>
-            ))
+            (codes ?? []).map((c) => {
+              const userName = nameByEmail.get(String(c.email ?? "").toLowerCase()) ?? "名前未設定";
+              return (
+                <div key={c.id} className="rounded-xl border px-3 py-2 text-sm">
+                  <p>
+                    【コード：{c.code}】{jpDate(c.created_at)} / {jpTime(c.created_at)} / {userName}
+                  </p>
+                </div>
+              );
+            })
           )}
         </CardContent>
       </Card>

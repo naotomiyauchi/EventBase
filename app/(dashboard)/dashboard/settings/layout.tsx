@@ -1,9 +1,8 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
+import { SettingsTabs } from "@/components/settings/settings-tabs";
 import { isAppManagerRole } from "@/lib/app-role";
 import { getCurrentProfile } from "@/lib/auth-profile";
 import { createClient } from "@/lib/supabase/server";
-import { cn } from "@/lib/utils";
 
 export default async function SettingsLayout({
   children,
@@ -17,38 +16,16 @@ export default async function SettingsLayout({
   }
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">設定</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          スタッフ名簿・登録・Google/LINE 連携を行います。
+    <div className="mx-auto max-w-5xl space-y-6">
+      <div className="rounded-2xl border bg-linear-to-b from-card to-card/60 p-5 shadow-xs">
+        <p className="text-xs font-semibold tracking-[0.18em] text-muted-foreground">
+          SETTINGS
         </p>
-        <nav className="mt-4 flex flex-wrap gap-2 border-b pb-3">
-          <Link
-            href="/dashboard/settings/users"
-            className={cn(
-              "rounded-md px-3 py-1.5 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
-            )}
-          >
-            スタッフ名簿
-          </Link>
-          <Link
-            href="/dashboard/settings/google"
-            className={cn(
-              "rounded-md px-3 py-1.5 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
-            )}
-          >
-            Google 連携
-          </Link>
-          <Link
-            href="/dashboard/settings/line"
-            className={cn(
-              "rounded-md px-3 py-1.5 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
-            )}
-          >
-            LINE 連携
-          </Link>
-        </nav>
+        <h1 className="mt-2 text-2xl font-semibold tracking-tight">設定</h1>
+        <p className="mt-1 text-sm text-muted-foreground">
+          スタッフ・連携設定をひとつの画面で管理します。
+        </p>
+        <SettingsTabs />
       </div>
       {children}
     </div>

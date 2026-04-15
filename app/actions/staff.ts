@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import type { AppRole } from "@/lib/app-role";
 import { isAppManagerRole } from "@/lib/app-role";
+import { createGoogleLinkNotification } from "@/app/actions/google-link";
 import { findAuthUserByEmail } from "@/lib/auth-admin-lookup";
 import { getCurrentProfile } from "@/lib/auth-profile";
 import { isSupabaseConfigured } from "@/lib/env";
@@ -492,6 +493,7 @@ export async function registerStaffWithAccount(formData: FormData) {
   const password = String(formData.get("password") ?? "");
   const displayName = String(formData.get("display_name") ?? "").trim();
   const role = parseAppRole(formData.get("role"));
+  const sendGoogleGuide = String(formData.get("send_google_guide") ?? "") === "1";
 
   if (!emailRaw || !password) {
     redirect(
@@ -581,5 +583,21 @@ export async function registerStaffWithAccount(formData: FormData) {
   revalidatePath(`/dashboard/settings/users/staff/${inserted.id}`);
   revalidatePath("/dashboard/staff");
   revalidatePath("/dashboard");
+  if (sendGoogleGuide) {
+    const notice = await createGoogleLinkNotification({
+      staffId: inserted.id,
+      tenantId: actor.tenant_id,
+      staffName: row.name,
+      staffEmail: emailNorm,
+    });
+    if (!notice.ok) {
+      redirect(
+        `/dashboard/settings/users/staff/${inserted.id}?registered=1&google_notice_failed=1`
+      );
+    }
+    redirect(
+      `/dashboard/settings/users/staff/${inserted.id}?registered=1&google_notice_sent=1`
+    );
+  }
   redirect(`/dashboard/settings/users/staff/${inserted.id}?registered=1`);
 }

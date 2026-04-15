@@ -11,35 +11,50 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { createProject } from "@/app/actions/projects";
+import { deleteProject, updateProjectStatus } from "@/app/actions/projects";
 import { PROJECT_STATUS_ORDER } from "@/lib/project-status";
+import { StoresPageClient, type StoreRow } from "@/components/stores-page-client";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ProjectCreateForm } from "@/components/project-create-form";
 
-type StoreOption = { id: string; name: string };
+type CarrierOption = { id: string; name: string };
+type AgencyOption = {
+  id: string;
+  name: string;
+  carriers: { name: string } | null;
+  agency_carriers: { carrier_id: string }[] | null;
+};
 
 export default async function ProjectsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{
+    error?: string;
+    deleted?: string;
+    event_created?: string;
+    event_updated?: string;
+    event_deleted?: string;
+    event_error?: string;
+  }>;
 }) {
   const sp = await searchParams;
   const projects: {
     id: string;
     title: string;
     status: keyof typeof PROJECT_STATUS_LABELS;
-    start_at: string | null;
+    event_location: string | null;
     stores: {
       name: string;
       agencies: { name: string; carriers: { name: string } | null } | null;
     } | null;
   }[] = [];
-  let stores: StoreOption[] = [];
+  let storeRows: StoreRow[] = [];
+  let agencies: AgencyOption[] = [];
+  let carriers: CarrierOption[] = [];
 
   if (isSupabaseConfigured()) {
     const supabase = await createClient();
-    const [projRes, storeRes] = await Promise.all([
+    const [projRes, storeMasterRes, agencyRes, carrierRes] = await Promise.all([
       supabase
         .from("projects")
         .select(
@@ -47,7 +62,7 @@ export default async function ProjectsPage({
           id,
           title,
           status,
-          start_at,
+          event_location,
           stores (
             name,
             agencies (
@@ -57,136 +72,223 @@ export default async function ProjectsPage({
           )
         `
         )
-        .order("start_at", { ascending: false, nullsFirst: false }),
-      supabase.from("stores").select("id, name").order("name"),
+        .order("created_at", { ascending: false }),
+      supabase
+        .from("stores")
+        .select(
+          `
+          id,
+          agency_id,
+          name,
+          address,
+          access_notes,
+          contact_name,
+          contact_phone,
+          entry_rules,
+          agencies (
+            name,
+            carriers ( name )
+          )
+        `
+        )
+        .order("name"),
+      supabase
+        .from("agencies")
+        .select("id, name, carriers ( name ), agency_carriers ( carrier_id )")
+        .order("name"),
+      supabase.from("carriers").select("id, name").order("name"),
     ]);
     projects.push(
       ...((projRes.data ?? []) as unknown as (typeof projects)[number][])
     );
-    stores = (storeRes.data ?? []) as StoreOption[];
+    storeRows = (storeMasterRes.data ?? []) as unknown as StoreRow[];
+    agencies = (agencyRes.data ?? []) as unknown as AgencyOption[];
+    carriers = (carrierRes.data ?? []) as CarrierOption[];
   }
 
   return (
-    <div className="space-y-8">
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h1 className="text-xl font-semibold tracking-tight">案件</h1>
-          <p className="text-sm text-muted-foreground">
-            ステータスとイベントを紐付けて管理します。
-          </p>
-        </div>
+    <div className="space-y-6">
+      <div className="rounded-2xl border bg-linear-to-b from-card to-card/60 p-5 shadow-xs">
+        <p className="text-xs font-semibold tracking-[0.18em] text-muted-foreground">
+          PROJECT STUDIO
+        </p>
+        <h1 className="text-xl font-semibold tracking-tight">案件情報</h1>
+        <p className="text-sm text-muted-foreground">
+          案件一覧・案件追加・イベント場所追加を1画面で管理します。
+        </p>
       </div>
 
       {sp.error && (
-        <p className="text-sm text-destructive">
+        <p className="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
           保存に失敗しました: {decodeURIComponent(sp.error)}
         </p>
       )}
+      {sp.deleted === "1" && (
+        <p className="rounded-lg border border-green-600/30 bg-green-600/10 px-3 py-2 text-sm text-green-700 dark:text-green-300">
+          案件を削除しました。
+        </p>
+      )}
+      {sp.event_created === "1" && (
+        <p className="rounded-lg border border-green-600/30 bg-green-600/10 px-3 py-2 text-sm text-green-700 dark:text-green-300">
+          イベントを登録しました。
+        </p>
+      )}
+      {sp.event_updated === "1" && (
+        <p className="rounded-lg border border-green-600/30 bg-green-600/10 px-3 py-2 text-sm text-green-700 dark:text-green-300">
+          イベントを更新しました。
+        </p>
+      )}
+      {sp.event_deleted === "1" && (
+        <p className="rounded-lg border border-green-600/30 bg-green-600/10 px-3 py-2 text-sm text-green-700 dark:text-green-300">
+          イベントを削除しました。
+        </p>
+      )}
+      {sp.event_error && (
+        <p className="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+          イベント操作に失敗しました: {decodeURIComponent(sp.event_error)}
+        </p>
+      )}
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">新規案件</CardTitle>
-          <CardDescription>
-            初期版は必須項目のみ。添付・収支は案件詳細から追加できます。
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form action={createProject} className="space-y-4 max-w-lg">
-            <div className="space-y-2">
-              <Label htmlFor="title">案件名</Label>
-              <Input id="title" name="title" required placeholder="例: 〇〇店 春のキャンペーン" />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="store_id">イベント（店舗）</Label>
-              <select
-                id="store_id"
-                name="store_id"
-                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]"
-                defaultValue=""
-              >
-                <option value="">未選択（後から紐付け可）</option>
-                {stores.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="status">ステータス</Label>
-                <select
-                  id="status"
-                  name="status"
-                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]"
-                  defaultValue="proposal"
-                >
-                  {PROJECT_STATUS_ORDER.map((st) => (
-                    <option key={st} value={st}>
-                      {PROJECT_STATUS_LABELS[st]}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="start_at">開始</Label>
-                <Input id="start_at" name="start_at" type="datetime-local" />
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="end_at">終了</Label>
-              <Input id="end_at" name="end_at" type="datetime-local" />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="notes">メモ</Label>
-              <Textarea id="notes" name="notes" rows={3} />
-            </div>
-            <Button type="submit" disabled={!isSupabaseConfigured()}>
-              作成
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
+      <Tabs defaultValue="projects-list">
+        <TabsList className="grid w-full max-w-xl grid-cols-3 rounded-xl border bg-card/70 p-1">
+          <TabsTrigger value="projects-list">案件一覧</TabsTrigger>
+          <TabsTrigger value="project-create">案件の追加</TabsTrigger>
+          <TabsTrigger value="event-create">イベント場所の追加</TabsTrigger>
+        </TabsList>
 
-      <div className="space-y-3">
-        <h2 className="text-sm font-medium text-muted-foreground">一覧</h2>
-        {!isSupabaseConfigured() && (
-          <p className="text-sm text-muted-foreground">
-            Supabase 接続後に一覧が表示されます。
-          </p>
-        )}
-        {isSupabaseConfigured() && projects.length === 0 && (
-          <p className="text-sm text-muted-foreground">案件がありません。</p>
-        )}
-        <div className="grid gap-3">
-          {projects.map((p) => {
-            const place =
-              p.stores?.name &&
-              `${p.stores.agencies?.carriers?.name ?? ""} ${p.stores.agencies?.name ?? ""} ${p.stores.name}`
-                .replace(/\s+/g, " ")
-                .trim();
-            return (
-              <Link key={p.id} href={`/dashboard/projects/${p.id}`}>
-                <Card className="transition-colors hover:bg-accent/30">
-                  <CardContent className="flex flex-col gap-2 p-4 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="min-w-0 space-y-1">
-                      <p className="truncate font-medium">{p.title}</p>
-                      {place && (
-                        <p className="truncate text-xs text-muted-foreground">
-                          {place}
-                        </p>
-                      )}
-                    </div>
-                    <Badge variant="secondary" className="shrink-0 sm:ml-4">
-                      {PROJECT_STATUS_LABELS[p.status]}
-                    </Badge>
-                  </CardContent>
-                </Card>
-              </Link>
-            );
-          })}
-        </div>
-      </div>
+        <TabsContent value="projects-list" className="mt-4">
+          <Card className="border-border/70 shadow-xs">
+            <CardHeader>
+              <CardTitle className="text-lg">案件一覧（編集・削除）</CardTitle>
+              <CardDescription>
+                ステータス変更と詳細編集をすばやく行えます。
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {!isSupabaseConfigured() && (
+                <p className="text-sm text-muted-foreground">
+                  Supabase 接続後に一覧が表示されます。
+                </p>
+              )}
+              {isSupabaseConfigured() && projects.length === 0 && (
+                <p className="text-sm text-muted-foreground">案件がありません。</p>
+              )}
+              <div className="grid gap-3">
+                {projects.map((p) => {
+                  const place =
+                    p.event_location ||
+                    (p.stores?.name &&
+                      `${p.stores.agencies?.carriers?.name ?? ""} ${p.stores.agencies?.name ?? ""} ${p.stores.name}`
+                        .replace(/\s+/g, " ")
+                        .trim());
+                  return (
+                    <Card key={p.id} className="border-border/70 bg-card/70">
+                      <CardContent className="flex flex-col gap-3 p-4">
+                        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                          <div className="min-w-0 space-y-1">
+                            <p className="truncate font-medium">{p.title}</p>
+                            {place ? (
+                              <p className="truncate text-xs text-muted-foreground">{place}</p>
+                            ) : (
+                              <p className="text-xs text-muted-foreground">開催場所未設定</p>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Link href={`/dashboard/projects/${p.id}`}>
+                              <Button size="sm" variant="outline">
+                                編集
+                              </Button>
+                            </Link>
+                            <form action={deleteProject}>
+                              <input type="hidden" name="id" value={p.id} />
+                              <Button size="sm" variant="destructive" type="submit">
+                                削除
+                              </Button>
+                            </form>
+                          </div>
+                        </div>
+                        <form action={updateProjectStatus} className="flex flex-wrap items-center gap-2">
+                          <input type="hidden" name="id" value={p.id} />
+                          <select
+                            name="status"
+                            defaultValue={p.status}
+                            className="flex h-9 min-w-44 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]"
+                          >
+                            {PROJECT_STATUS_ORDER.map((st) => (
+                              <option key={st} value={st}>
+                                {PROJECT_STATUS_LABELS[st]}
+                              </option>
+                            ))}
+                          </select>
+                          <Button type="submit" size="sm" variant="secondary">
+                            ステータス更新
+                          </Button>
+                          <Badge variant="secondary">{PROJECT_STATUS_LABELS[p.status]}</Badge>
+                        </form>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="project-create" className="mt-4">
+          <Card className="border-border/70 shadow-xs">
+            <CardHeader>
+              <CardTitle className="text-lg">案件の追加</CardTitle>
+              <CardDescription>
+                項目を3ブロックに整理し、迷わず入力できるようにしています。
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ProjectCreateForm
+                stores={storeRows.map((s) => ({
+                  id: s.id,
+                  name: s.name,
+                  agency_id: s.agency_id,
+                }))}
+                carriers={carriers}
+                agencies={agencies.map((a) => ({
+                  id: a.id,
+                  name: a.name,
+                  carrierIds:
+                    a.agency_carriers?.map((c) => c.carrier_id).filter(Boolean) ?? [],
+                }))}
+                isSupabaseReady={isSupabaseConfigured()}
+              />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="event-create" className="mt-4">
+          <Card className="border-border/70 shadow-xs">
+            <CardHeader>
+              <CardTitle className="text-lg">イベント場所の追加</CardTitle>
+              <CardDescription>
+                旧イベントタブ機能をここに統合しています。
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {!isSupabaseConfigured() ? (
+                <p className="text-sm text-muted-foreground">Supabase 接続後に表示されます。</p>
+              ) : (
+                <StoresPageClient
+                  stores={storeRows}
+                  agencies={agencies.map((a) => ({
+                    id: a.id,
+                    name: a.name,
+                    carrierName: a.carriers?.name ?? null,
+                  }))}
+                  canMutate
+                  returnTo="projects"
+                />
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/auth-profile";
 import { isAppManagerRole } from "@/lib/app-role";
+import { isSmtpConfigured, sendMailViaSmtp } from "@/lib/smtp-mail";
 
 function generateSixDigitCode(): string {
   return String(Math.floor(100000 + Math.random() * 900000));
@@ -46,10 +47,9 @@ export async function sendLineLinkCodeAction(formData: FormData) {
     redirect(`/dashboard/settings/line?error=${encodeURIComponent(insErr.message)}`);
   }
 
-  const apiKey = process.env.RESEND_API_KEY;
   const from = process.env.LINE_LINK_MAIL_FROM || process.env.BILLING_MAIL_FROM;
-  if (!apiKey || !from) {
-    redirect("/dashboard/settings/line?error=resend_not_configured");
+  if (!isSmtpConfigured() || !from) {
+    redirect("/dashboard/settings/line?error=smtp_not_configured");
   }
 
   const subject = "【EventBase】LINE連携コード";
@@ -64,21 +64,19 @@ export async function sendLineLinkCodeAction(formData: FormData) {
     "有効期限: 30分",
   ].join("\n");
 
-  const response = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
+  try {
+    await sendMailViaSmtp({
       from,
       to: [staff.email],
       subject,
       text: body,
-    }),
-  });
-  if (!response.ok) {
-    redirect("/dashboard/settings/line?error=mail_send_failed");
+    });
+  } catch (e) {
+    redirect(
+      `/dashboard/settings/line?error=${encodeURIComponent(
+        e instanceof Error ? `mail_send_failed:${e.message}` : "mail_send_failed"
+      )}`
+    );
   }
 
   revalidatePath("/dashboard/settings/line");

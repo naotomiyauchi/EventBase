@@ -12,7 +12,6 @@ import {
   LayoutDashboard,
   Menu,
   Settings,
-  Store,
   User,
   Users,
   Wallet,
@@ -20,7 +19,11 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { TenantLogo } from "@/components/tenant-logo";
-import { UserMenu } from "@/components/user-menu";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import type { TenantBranding } from "@/lib/tenant-branding";
 import { tenantPrimaryCssVars } from "@/lib/tenant-branding";
@@ -36,9 +39,6 @@ const baseGroups = [
     label: "案件",
     items: [
       { href: "/dashboard/projects", label: "案件情報", icon: ClipboardList },
-      { href: "/dashboard/stores", label: "イベント", icon: Store },
-      { href: "/dashboard/billing", label: "請求・見積", icon: FileText },
-      { href: "/dashboard/finance", label: "領収書・出納", icon: Wallet },
       { href: "/dashboard/masters", label: "マスタ", icon: Building2 },
     ],
   },
@@ -48,15 +48,29 @@ const baseGroups = [
     items: [
       { href: "/dashboard/staff", label: "スタッフ情報", icon: Users },
       { href: "/dashboard/attendance", label: "打刻", icon: Clock3 },
+    ],
+  },
+  {
+    key: "shifts",
+    label: "シフト",
+    items: [
       { href: "/dashboard/my-shifts", label: "マイシフト", icon: CalendarDays },
+      { href: "/dashboard/shifts", label: "シフト管理", icon: CalendarDays },
+      { href: "/dashboard/shift-board", label: "シフト表（管理）", icon: CalendarDays },
+    ],
+  },
+  {
+    key: "finance",
+    label: "経理",
+    items: [
+      { href: "/dashboard/billing", label: "請求/見積もり", icon: FileText },
+      { href: "/dashboard/finance", label: "領収書/出納", icon: Wallet },
     ],
   },
 ];
 
 type Props = {
   children: React.ReactNode;
-  userEmail?: string | null;
-  showAuth: boolean;
   /** 管理者・チームリーダーのみ */
   showSettingsNav?: boolean;
   /** テナント白ラベル（未設定時は既定の EventBase 見た目） */
@@ -66,18 +80,26 @@ type Props = {
   /** anfra.jp 等 — 背景を黒ベースにして顧客ドメインと差別化 */
   anfraDarkShell?: boolean;
   unreadNotifications?: number;
+  notificationPreviews?: NotificationPreview[];
   forceWhiteLogo?: boolean;
+};
+
+export type NotificationPreview = {
+  id: string;
+  title: string;
+  body: string | null;
+  created_at: string;
+  read_at: string | null;
 };
 
 export function AppShell({
   children,
-  userEmail,
-  showAuth,
   showSettingsNav,
   tenantBranding,
   featureBilling = true,
   anfraDarkShell = false,
   unreadNotifications = 0,
+  notificationPreviews = [],
   forceWhiteLogo = false,
 }: Props) {
   const pathname = usePathname();
@@ -87,25 +109,20 @@ export function AppShell({
     // 非管理ユーザー向けには「シフト表（管理画面）」を隠す
     const filtered = baseGroups.map((g) => {
       let items = g.items;
-      if (g.key === "projects" && !featureBilling) {
+      if (g.key === "finance" && !featureBilling) {
         items = items.filter((i) => i.href !== "/dashboard/billing");
       }
-      if (g.key === "projects" && !showSettingsNav) {
+      if (g.key === "finance" && !showSettingsNav) {
         items = items.filter((i) => i.href !== "/dashboard/finance");
       }
-      return {
-        ...g,
-        items:
-          g.key === "staff" && showSettingsNav
-            ? [
-                ...items,
-                { href: "/dashboard/shifts", label: "シフト管理", icon: CalendarDays },
-                { href: "/dashboard/shift-board", label: "シフト表（管理）", icon: CalendarDays },
-              ]
-            : items,
-      };
+      if (g.key === "shifts" && !showSettingsNav) {
+        items = items.filter(
+          (i) => i.href !== "/dashboard/shifts" && i.href !== "/dashboard/shift-board"
+        );
+      }
+      return { ...g, items };
     });
-    return filtered;
+    return filtered.filter((g) => g.items.length > 0);
   }, [showSettingsNav, featureBilling]);
 
   const bottomItems = React.useMemo(
@@ -139,23 +156,39 @@ export function AppShell({
         href={href}
         onClick={onClick}
         className={cn(
-          "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+          "group flex items-center gap-3 rounded-xl border px-3 py-2 text-sm font-medium transition-all",
           anfraDarkShell
             ? active
-              ? "bg-zinc-800 text-white"
-              : "text-zinc-400 hover:bg-zinc-800/70 hover:text-zinc-100"
+              ? "border-zinc-700 bg-zinc-800 text-white shadow-sm"
+              : "border-transparent text-zinc-400 hover:border-zinc-800 hover:bg-zinc-800/70 hover:text-zinc-100"
             : active
-              ? "bg-accent text-accent-foreground"
-              : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
+              ? "border-primary/30 bg-primary/10 text-foreground shadow-sm"
+              : "border-transparent text-muted-foreground hover:border-border hover:bg-accent/60 hover:text-foreground"
         )}
       >
-        <Icon className="h-4 w-4 shrink-0" />
+        <Icon
+          className={cn(
+            "h-4 w-4 shrink-0 transition-transform",
+            active ? "scale-105" : "group-hover:scale-105"
+          )}
+        />
         {label}
       </Link>
     );
   }
 
   const logoUrl = tenantBranding?.logoUrl ?? null;
+
+  function dt(s: string) {
+    return new Date(s).toLocaleString("ja-JP", {
+      timeZone: "Asia/Tokyo",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    });
+  }
 
   return (
     <div
@@ -168,28 +201,53 @@ export function AppShell({
     >
       <aside
         className={cn(
-          "hidden w-56 shrink-0 border-r md:block",
+          "hidden w-60 shrink-0 border-r md:block",
           anfraDarkShell
-            ? "border-zinc-800 bg-zinc-950"
-            : "bg-card"
+            ? "border-zinc-800 bg-zinc-950/95"
+            : "bg-card/85 backdrop-blur supports-backdrop-filter:bg-card/75"
         )}
       >
         <div
           className={cn(
-            "flex h-14 items-center gap-2 border-b px-4",
+            "flex h-16 items-center gap-3 border-b px-4",
             anfraDarkShell && "border-zinc-800"
           )}
         >
-          <TenantLogo logoUrl={logoUrl} width={44} height={44} className="rounded" forceWhiteLogo={forceWhiteLogo} />
+          <div
+            className={cn(
+              "rounded-xl border p-1.5",
+              anfraDarkShell
+                ? "border-zinc-700 bg-zinc-900"
+                : "border-border/80 bg-background/70"
+            )}
+          >
+            <TenantLogo
+              logoUrl={logoUrl}
+              width={38}
+              height={38}
+              className="rounded"
+              forceWhiteLogo={forceWhiteLogo}
+            />
+          </div>
+          <div className="min-w-0">
+            <p
+              className={cn(
+                "truncate text-xs font-semibold tracking-[0.18em]",
+                anfraDarkShell ? "text-zinc-400" : "text-muted-foreground"
+              )}
+            >
+              EVENT BASE
+            </p>
+          </div>
         </div>
-        <div className="flex h-[calc(100svh-3.5rem)] flex-col">
+        <div className="flex h-[calc(100svh-4rem)] flex-col">
           <nav className="flex-1 space-y-3 overflow-y-auto p-3">
             {groups.map((g) => (
               <div key={g.key} className="space-y-1">
                 {g.label && (
                   <p
                     className={cn(
-                      "px-3 pt-2 text-xs font-medium",
+                      "px-3 pt-2 text-[11px] font-semibold tracking-[0.14em]",
                       anfraDarkShell ? "text-zinc-500" : "text-muted-foreground"
                     )}
                   >
@@ -217,7 +275,7 @@ export function AppShell({
       <div className="flex min-w-0 flex-1 flex-col">
         <header
           className={cn(
-            "sticky top-0 z-40 flex h-14 items-center justify-between gap-2 border-b px-4 backdrop-blur",
+            "sticky top-0 z-40 flex h-16 items-center justify-between gap-2 border-b px-4 backdrop-blur",
             anfraDarkShell
               ? "border-zinc-800 bg-black/90 supports-backdrop-filter:bg-black/80"
               : "bg-background/95 supports-backdrop-filter:bg-background/80"
@@ -228,41 +286,89 @@ export function AppShell({
               type="button"
               onClick={() => setMobileOpen(true)}
               className={cn(
-                "inline-flex h-9 w-9 items-center justify-center rounded-md",
+                "inline-flex h-9 w-9 items-center justify-center rounded-lg border transition-colors",
                 anfraDarkShell
-                  ? "text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100"
-                  : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
+                  ? "border-zinc-700 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100"
+                  : "border-border text-muted-foreground hover:bg-accent/50 hover:text-foreground"
               )}
               aria-label="メニュー"
             >
               <Menu className="h-5 w-5" />
             </button>
-            <TenantLogo logoUrl={logoUrl} width={34} height={34} className="rounded" forceWhiteLogo={forceWhiteLogo} />
+            <TenantLogo
+              logoUrl={logoUrl}
+              width={34}
+              height={34}
+              className="rounded"
+              forceWhiteLogo={forceWhiteLogo}
+            />
           </div>
           <div className="ml-auto flex items-center gap-2 md:ml-0">
-            <Link
-              href="/dashboard/notifications"
-              className={cn(
-                "relative inline-flex h-9 w-9 items-center justify-center rounded-md",
-                anfraDarkShell
-                  ? "text-zinc-300 hover:bg-zinc-800"
-                  : "text-muted-foreground hover:bg-accent/50"
-              )}
-              aria-label="通知"
-            >
-              <Bell className="h-5 w-5" />
-              {unreadNotifications > 0 ? (
-                <span className="absolute -right-0.5 -top-0.5 inline-flex min-w-4 items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-semibold text-white">
-                  {unreadNotifications > 99 ? "99+" : unreadNotifications}
-                </span>
-              ) : null}
-            </Link>
-            <UserMenu email={userEmail} canSignOut={showAuth} />
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                className={cn(
+                  "relative inline-flex h-9 w-9 items-center justify-center rounded-lg border",
+                  anfraDarkShell
+                    ? "border-zinc-700 text-zinc-300 hover:bg-zinc-800"
+                    : "border-border text-muted-foreground hover:bg-accent/50"
+                )}
+                aria-label="通知"
+              >
+                <Bell className="h-5 w-5" />
+                {unreadNotifications > 0 ? (
+                  <span className="absolute -right-0.5 -top-0.5 inline-flex min-w-4 items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-semibold text-white">
+                    {unreadNotifications > 99 ? "99+" : unreadNotifications}
+                  </span>
+                ) : null}
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                align="end"
+                sideOffset={10}
+                className="w-[360px] min-w-0 rounded-xl p-2"
+              >
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between px-2 py-1">
+                    <p className="text-xs font-semibold tracking-[0.14em] text-muted-foreground">
+                      NOTIFICATIONS
+                    </p>
+                    <Link href="/dashboard/notifications" className="text-xs text-primary hover:underline">
+                      すべて見る
+                    </Link>
+                  </div>
+                  <div className="max-h-80 space-y-1 overflow-y-auto">
+                    {notificationPreviews.length === 0 ? (
+                      <p className="px-2 py-4 text-sm text-muted-foreground">通知はありません。</p>
+                    ) : (
+                      notificationPreviews.map((n) => (
+                        <Link
+                          key={n.id}
+                          href="/dashboard/notifications"
+                          className={cn(
+                            "block rounded-lg border px-2.5 py-2 transition-colors",
+                            n.read_at
+                              ? "border-border/70 hover:bg-muted/40"
+                              : "border-primary/30 bg-primary/5 hover:bg-primary/10"
+                          )}
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <p className="line-clamp-1 text-sm font-medium">{n.title}</p>
+                            <p className="shrink-0 text-[11px] text-muted-foreground">{dt(n.created_at)}</p>
+                          </div>
+                          {n.body ? (
+                            <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{n.body}</p>
+                          ) : null}
+                        </Link>
+                      ))
+                    )}
+                  </div>
+                </div>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </header>
 
         <main
-          className={cn("flex-1 p-4 pb-6", anfraDarkShell && "bg-black")}
+          className={cn("flex-1 p-5 pb-8", anfraDarkShell && "bg-black")}
         >
           {children}
         </main>

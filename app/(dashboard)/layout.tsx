@@ -1,5 +1,6 @@
 import { AppShell } from "@/components/app-shell";
 import { SetupBanner } from "@/components/setup-banner";
+import type { NotificationPreview } from "@/components/app-shell";
 import { Toaster } from "@/components/ui/sonner";
 import { isAppManagerRole } from "@/lib/app-role";
 import { getCurrentProfile } from "@/lib/auth-profile";
@@ -20,6 +21,7 @@ export default async function DashboardGroupLayout({
   let tenantBranding: TenantBranding | null = null;
   let featureBilling = true;
   let unreadNotifications = 0;
+  let notificationPreviews: NotificationPreview[] = [];
   const configured = isSupabaseConfigured();
   const anfraDarkShell = await isAnfraHost();
   const forceWhiteLogo = await isWhiteLogoHost();
@@ -46,24 +48,31 @@ export default async function DashboardGroupLayout({
           true
         );
       }
-      const { count } = await supabase
-        .from("app_notifications")
-        .select("id", { head: true, count: "exact" })
-        .is("read_at", null);
+      const [{ count }, { data: latest }] = await Promise.all([
+        supabase
+          .from("app_notifications")
+          .select("id", { head: true, count: "exact" })
+          .is("read_at", null),
+        supabase
+          .from("app_notifications")
+          .select("id, title, body, created_at, read_at")
+          .order("created_at", { ascending: false })
+          .limit(6),
+      ]);
       unreadNotifications = count ?? 0;
+      notificationPreviews = (latest ?? []) as NotificationPreview[];
     }
   }
 
   return (
     <>
       <AppShell
-        userEmail={userEmail}
-        showAuth={configured}
         showSettingsNav={showSettingsNav}
         tenantBranding={tenantBranding}
         featureBilling={featureBilling}
         anfraDarkShell={anfraDarkShell}
         unreadNotifications={unreadNotifications}
+        notificationPreviews={notificationPreviews}
         forceWhiteLogo={forceWhiteLogo}
       >
         {!configured && <SetupBanner />}

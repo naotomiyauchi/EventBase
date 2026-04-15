@@ -1,9 +1,9 @@
 import { notFound } from "next/navigation";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { isAppManagerRole } from "@/lib/app-role";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/auth-profile";
-import { isAppManagerRole } from "@/lib/app-role";
 import {
   markAllNotificationsReadAction,
   markNotificationReadAction,
@@ -29,20 +29,25 @@ export default async function NotificationsPage({
   const sp = await searchParams;
   const supabase = await createClient();
   const profile = await getCurrentProfile(supabase);
-  if (!profile || !isAppManagerRole(profile.role)) notFound();
+  if (!profile) notFound();
 
   const { data: rows } = await supabase
     .from("app_notifications")
-    .select("id, type, title, body, read_at, created_at")
+    .select("id, type, title, body, metadata, read_at, created_at")
     .order("created_at", { ascending: false })
     .limit(200);
+  const isManager = isAppManagerRole(profile.role);
+  const visibleRows = (rows ?? []).filter((r) => {
+    if (!isManager) return true;
+    return r.type !== "google_link_guide" && r.type !== "google_link_completed_staff";
+  });
 
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-xl font-semibold tracking-tight">通知</h1>
-          <p className="text-sm text-muted-foreground">LINE経由の領収書アップロード・希望休追加を表示します。</p>
+          <p className="text-sm text-muted-foreground">お知らせと連携案内を表示します。</p>
         </div>
         <form action={markAllNotificationsReadAction}>
           <Button type="submit" variant="outline">すべて既読にする</Button>
@@ -63,19 +68,57 @@ export default async function NotificationsPage({
           <CardDescription>未読は背景が強調表示されます。</CardDescription>
         </CardHeader>
         <CardContent className="space-y-2">
-          {(rows ?? []).length === 0 ? (
+          {visibleRows.length === 0 ? (
             <p className="text-sm text-muted-foreground">通知はまだありません。</p>
           ) : (
-            (rows ?? []).map((r) => (
-              <div
-                key={r.id}
-                className={`rounded border px-3 py-3 text-sm ${r.read_at ? "" : "bg-muted/30"}`}
-              >
+            visibleRows.map((r) => (
+              <div key={r.id} className={`rounded border px-3 py-3 text-sm ${r.read_at ? "" : "bg-muted/30"}`}>
                 <div className="flex items-center justify-between gap-2">
                   <p className="font-medium">{r.title}</p>
                   <p className="text-xs text-muted-foreground">{dt(r.created_at)}</p>
                 </div>
                 {r.body ? <p className="mt-1 text-xs text-muted-foreground">{r.body}</p> : null}
+                {(() => {
+                  const isGoogleGuide = r.type === "google_link_guide";
+                  const isGoogleGuideForStaff = r.type === "google_link_guide";
+                  const actionUrl =
+                    isGoogleGuide
+                      ? "/dashboard/account?connect_google=1"
+                      : typeof r.metadata === "object" &&
+                          r.metadata &&
+                          "action_url" in r.metadata &&
+                          typeof r.metadata.action_url === "string"
+                        ? r.metadata.action_url
+                        : "";
+                  if (!actionUrl) return null;
+                  const actionLabel =
+                    isGoogleGuide
+                      ? "こちら"
+                      : typeof r.metadata === "object" &&
+                          r.metadata &&
+                          "action_label" in r.metadata &&
+                          typeof r.metadata.action_label === "string" &&
+                          r.metadata.action_label
+                        ? r.metadata.action_label
+                        : "詳細はこちら";
+                  return (
+                    <div className="mt-2 space-y-1">
+                      <a
+                        href={actionUrl}
+                        className={
+                          isGoogleGuideForStaff
+                            ? "inline-flex rounded-md bg-primary px-2.5 py-1 text-xs font-semibold text-primary-foreground hover:bg-primary/90"
+                            : "inline-flex text-xs font-medium text-primary underline-offset-4 hover:underline"
+                        }
+                      >
+                        {actionLabel}
+                      </a>
+                      {isGoogleGuideForStaff ? (
+                        <p className="text-[11px] text-muted-foreground break-all">{actionUrl}</p>
+                      ) : null}
+                    </div>
+                  );
+                })()}
                 {!r.read_at ? (
                   <form action={markNotificationReadAction} className="mt-2">
                     <input type="hidden" name="id" value={r.id} />

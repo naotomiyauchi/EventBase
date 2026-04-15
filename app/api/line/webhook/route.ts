@@ -11,6 +11,7 @@ import {
   replyLineMessage,
   verifyLineSignature,
 } from "@/lib/line-messaging";
+import { analyzeReceiptImage } from "@/lib/receipt-ocr";
 
 type LineEvent = {
   type: string;
@@ -452,6 +453,7 @@ export async function POST(req: Request) {
             tenantId = linkRow.tenant_id;
             const image = await fetchLineImageContent(messageId);
             if (image) {
+              const ocr = await analyzeReceiptImage(image);
               const filePath = `${tenantId}/line-receipts/${new Date().toISOString().slice(0, 10)}/${Date.now()}-${messageId}.jpg`;
               const { error: upErr } = await admin.storage
                 .from("receipt-files")
@@ -465,12 +467,15 @@ export async function POST(req: Request) {
                 }).format(new Date());
                 await admin.from("finance_receipts").insert({
                   tenant_id: tenantId,
-                  expense_date: today,
-                  category: "other",
-                  payment_method: "cash",
-                  amount: 0,
-                  tax_amount: 0,
-                  memo: "LINEアップロード領収書（金額未入力）",
+                  expense_date: ocr.inferredExpenseDate ?? today,
+                  category: ocr.inferredCategory ?? "other",
+                  payment_method: ocr.inferredPaymentMethod,
+                  amount: ocr.inferredAmount ?? 0,
+                  tax_amount: ocr.inferredTaxAmount ?? 0,
+                  vendor: ocr.inferredVendor,
+                  memo: ocr.rawText
+                    ? `LINEアップロード領収書（OCR解析済み）\n[OCR_DEBUG] engine=${ocr.ocrEngine} text_len=${ocr.debug.rawTextLength} openai_err=${ocr.debug.openAiError ?? "-"} doc_err=${ocr.debug.documentError ?? "-"} text_err=${ocr.debug.textError ?? "-"}\n${ocr.rawText.slice(0, 1600)}`
+                    : `[OCR_DEBUG] engine=${ocr.ocrEngine} text_len=0 openai_err=${ocr.debug.openAiError ?? "-"} doc_err=${ocr.debug.documentError ?? "-"} text_err=${ocr.debug.textError ?? "-"}`,
                   file_path: filePath,
                   created_by: null,
                 });
@@ -479,12 +484,21 @@ export async function POST(req: Request) {
                   type: "line_receipt_uploaded",
                   title: "LINE領収書がアップロードされました",
                   body: `スタッフID ${linkRow.staff_id} が領収書画像をアップロード`,
-                  metadata: { staff_id: linkRow.staff_id, file_path: filePath },
+                  metadata: {
+                    staff_id: linkRow.staff_id,
+                    file_path: filePath,
+                    ocr_engine: ocr.ocrEngine,
+                    ocr_debug: ocr.debug,
+                    inferred_amount: ocr.inferredAmount,
+                    inferred_date: ocr.inferredExpenseDate,
+                    inferred_vendor: ocr.inferredVendor,
+                    inferred_category: ocr.inferredCategory,
+                  },
                 });
                 if (ev.replyToken) {
                   await replyLineMessage(
                     ev.replyToken,
-                    "領収書画像を登録しました。続けて送る場合は画像を送信、終了は「完了」です。"
+                    `領収書が登録されました。${ocr.inferredAmount != null ? `金額候補: ${ocr.inferredAmount}円。` : ""}${ocr.ocrEngine === "none" ? "OCR抽出に失敗しました（管理画面メモに理由を記録）。" : ""}続けて送る場合は画像を送信、終了は「完了」です。`
                   );
                   replied = true;
                 }

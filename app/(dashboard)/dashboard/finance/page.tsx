@@ -4,6 +4,8 @@ import { createClient } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/auth-profile";
 import { isAppManagerRole } from "@/lib/app-role";
 import { ReceiptBoxClient } from "@/components/receipt-box-client";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Button } from "@/components/ui/button";
 
 function yen(v: number | null | undefined) {
   return `${Math.round(Number(v ?? 0)).toLocaleString("ja-JP")}円`;
@@ -105,27 +107,30 @@ export default async function FinancePage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-xl font-semibold tracking-tight">領収書ボックス・出納</h1>
+      <div className="rounded-2xl border bg-linear-to-b from-card to-card/60 p-5 shadow-xs">
+        <p className="text-xs font-semibold tracking-[0.18em] text-muted-foreground">
+          FINANCE STUDIO
+        </p>
+        <h1 className="text-xl font-semibold tracking-tight">領収書/出納</h1>
         <p className="text-sm text-muted-foreground">
-          領収書をアップロードすると経費データと出納帳へ自動連携され、会計入力の手間を減らします。
+          LINE連携・手動登録した領収書を、出納帳と一体で確認できます。
         </p>
       </div>
 
       <div className="grid gap-4 md:grid-cols-3">
-        <Card>
+        <Card className="border-border/70 bg-card/80 shadow-xs">
           <CardHeader className="pb-2">
             <CardDescription>当月経費合計</CardDescription>
             <CardTitle className="text-xl">{yen(monthTotal)}</CardTitle>
           </CardHeader>
         </Card>
-        <Card>
+        <Card className="border-border/70 bg-card/80 shadow-xs">
           <CardHeader className="pb-2">
             <CardDescription>当月消費税</CardDescription>
             <CardTitle className="text-xl">{yen(monthTax)}</CardTitle>
           </CardHeader>
         </Card>
-        <Card>
+        <Card className="border-border/70 bg-card/80 shadow-xs">
           <CardHeader className="pb-2">
             <CardDescription>当月現金支出</CardDescription>
             <CardTitle className="text-xl">{yen(cashTotal)}</CardTitle>
@@ -133,108 +138,131 @@ export default async function FinancePage() {
         </Card>
       </div>
 
-      <Card>
+      <Card className="border-border/70 shadow-xs">
         <CardHeader>
-          <CardTitle className="text-base">領収書を登録</CardTitle>
-          <CardDescription>画像/PDFをアップロードして、経費と出納へ即時反映</CardDescription>
+          <CardTitle className="text-base">手動登録</CardTitle>
+          <CardDescription>
+            「手動で領収書を登録」を押したときだけフォームを表示します。
+          </CardDescription>
         </CardHeader>
         <CardContent>
-          <ReceiptBoxClient
-            tenantSlug={tenant?.slug ?? "default"}
-            projects={(projects ?? []).map((p) => ({ id: p.id, name: p.title }))}
-            agencies={(agencies ?? []).map((a) => ({ id: a.id, name: a.name }))}
-          />
+          <details className="group rounded-xl border bg-muted/20 p-3">
+            <summary className="list-none">
+              <span className="inline-flex h-10 cursor-pointer items-center rounded-lg border border-primary/40 bg-primary px-4 text-sm font-medium text-white shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary/70 hover:shadow-md">
+                手動で領収書を登録
+              </span>
+            </summary>
+            <div className="mt-4 border-t pt-4">
+              <ReceiptBoxClient
+                tenantSlug={tenant?.slug ?? "default"}
+                projects={(projects ?? []).map((p) => ({ id: p.id, name: p.title }))}
+                agencies={(agencies ?? []).map((a) => ({ id: a.id, name: a.name }))}
+              />
+            </div>
+          </details>
         </CardContent>
       </Card>
 
-      <div className="grid gap-4 xl:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">当月カテゴリ別経費</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            {Object.keys(categoryTotals).length === 0 ? (
-              <p className="text-sm text-muted-foreground">データがありません。</p>
-            ) : (
-              Object.entries(categoryTotals)
-                .sort((a, b) => b[1] - a[1])
-                .map(([k, v]) => (
-                  <div key={k} className="flex items-center justify-between rounded border px-3 py-2 text-sm">
-                    <span>{k}</span>
-                    <span className="font-medium">{yen(v)}</span>
+      <Tabs defaultValue="cashbook">
+        <TabsList className="grid w-full max-w-2xl grid-cols-3 rounded-xl border bg-card/70 p-1">
+          <TabsTrigger value="cashbook">出納帳</TabsTrigger>
+          <TabsTrigger value="category">当月カテゴリ別経費</TabsTrigger>
+          <TabsTrigger value="receipts">領収書一覧</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="cashbook" className="mt-4">
+          <Card className="border-border/70 shadow-xs">
+            <CardHeader>
+              <CardTitle className="text-base">出納帳</CardTitle>
+              <CardDescription>領収書登録で自動記帳（収入/調整は今後追加）</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {cashbookRows.length === 0 ? (
+                <p className="text-sm text-muted-foreground">データがありません。</p>
+              ) : (
+                cashbookRows.map((r) => (
+                  <div key={r.id} className="space-y-1 rounded-lg border bg-card/70 px-3 py-2 text-sm">
+                    <div className="flex items-center justify-between">
+                      <span>{r.entry_date}</span>
+                      <span className={r.entry_type === "income" ? "text-emerald-600" : "text-rose-600"}>
+                        {r.entry_type === "income" ? "+" : "-"}
+                        {yen(r.amount)}
+                      </span>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      {r.account} / {r.category ?? "other"} / {r.description ?? "—"}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      累計残高: {yen(balanceMap.get(r.id) ?? 0)}
+                    </p>
                   </div>
                 ))
-            )}
-          </CardContent>
-        </Card>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">現金出納帳</CardTitle>
-            <CardDescription>領収書登録で自動記帳（収入/調整は今後追加）</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            {cashbookRows.length === 0 ? (
-              <p className="text-sm text-muted-foreground">データがありません。</p>
-            ) : (
-              cashbookRows.map((r) => (
-                <div key={r.id} className="space-y-1 rounded border px-3 py-2 text-sm">
-                  <div className="flex items-center justify-between">
-                    <span>{r.entry_date}</span>
-                    <span className={r.entry_type === "income" ? "text-emerald-600" : "text-rose-600"}>
-                      {r.entry_type === "income" ? "+" : "-"}
-                      {yen(r.amount)}
-                    </span>
+        <TabsContent value="category" className="mt-4">
+          <Card className="border-border/70 shadow-xs">
+            <CardHeader>
+              <CardTitle className="text-base">当月カテゴリ別経費</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {Object.keys(categoryTotals).length === 0 ? (
+                <p className="text-sm text-muted-foreground">データがありません。</p>
+              ) : (
+                Object.entries(categoryTotals)
+                  .sort((a, b) => b[1] - a[1])
+                  .map(([k, v]) => (
+                    <div key={k} className="flex items-center justify-between rounded-lg border bg-card/70 px-3 py-2 text-sm">
+                      <span>{k}</span>
+                      <span className="font-medium">{yen(v)}</span>
+                    </div>
+                  ))
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="receipts" className="mt-4">
+          <Card className="border-border/70 shadow-xs">
+            <CardHeader>
+              <CardTitle className="text-base">領収書一覧</CardTitle>
+              <CardDescription>会計入力前の確認用（税額・案件・代理店で検索しやすい構成）</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {rows.length === 0 ? (
+                <p className="text-sm text-muted-foreground">まだ領収書がありません。</p>
+              ) : (
+                rows.map((r) => (
+                  <div key={r.id} className="space-y-1 rounded-lg border bg-card/70 px-3 py-2 text-sm">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <p className="font-medium">
+                        {r.expense_date} / {r.vendor || "支払先未入力"} / {yen(r.amount)}
+                      </p>
+                      {signedMap.get(r.file_path) ? (
+                        <a
+                          href={signedMap.get(r.file_path)}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-xs text-primary underline"
+                        >
+                          領収書を開く
+                        </a>
+                      ) : null}
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      {r.category} / {r.payment_method} / 税額 {yen(r.tax_amount)} / 案件:{" "}
+                      {r.projects?.[0]?.title ?? "未紐付け"} / 代理店: {r.agencies?.[0]?.name ?? "未紐付け"}
+                    </p>
+                    {r.memo ? <p className="text-xs text-muted-foreground">{r.memo}</p> : null}
                   </div>
-                  <p className="text-xs text-muted-foreground">
-                    {r.account} / {r.category ?? "other"} / {r.description ?? "—"}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    累計残高: {yen(balanceMap.get(r.id) ?? 0)}
-                  </p>
-                </div>
-              ))
-            )}
-          </CardContent>
-        </Card>
-      </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">領収書一覧</CardTitle>
-          <CardDescription>会計入力前の確認用（税額・案件・代理店で検索しやすい構成）</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-2">
-          {rows.length === 0 ? (
-            <p className="text-sm text-muted-foreground">まだ領収書がありません。</p>
-          ) : (
-            rows.map((r) => (
-              <div key={r.id} className="space-y-1 rounded border px-3 py-2 text-sm">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <p className="font-medium">
-                    {r.expense_date} / {r.vendor || "支払先未入力"} / {yen(r.amount)}
-                  </p>
-                  {signedMap.get(r.file_path) ? (
-                    <a
-                      href={signedMap.get(r.file_path)}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="text-xs text-primary underline"
-                    >
-                      領収書を開く
-                    </a>
-                  ) : null}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  {r.category} / {r.payment_method} / 税額 {yen(r.tax_amount)} / 案件:{" "}
-                  {r.projects?.[0]?.title ?? "未紐付け"} / 代理店: {r.agencies?.[0]?.name ?? "未紐付け"}
-                </p>
-                {r.memo ? <p className="text-xs text-muted-foreground">{r.memo}</p> : null}
-              </div>
-            ))
-          )}
-        </CardContent>
-      </Card>
+                ))
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

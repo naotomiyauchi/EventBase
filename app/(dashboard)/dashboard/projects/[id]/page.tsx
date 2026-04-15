@@ -16,11 +16,22 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import { ProjectFileUpload } from "@/components/project-file-upload";
-import { updateProjectNotes, updateProjectStatus } from "@/app/actions/projects";
+import { deleteProject, updateProject } from "@/app/actions/projects";
+
+function toDatetimeLocal(value: string | null): string {
+  if (!value) return "";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return "";
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(
+    d.getHours()
+  )}:${pad(d.getMinutes())}`;
+}
 
 export default async function ProjectDetailPage({
   params,
@@ -56,9 +67,23 @@ export default async function ProjectDetailPage({
       id,
       title,
       status,
-      start_at,
-      end_at,
-      notes,
+      store_id,
+      overview,
+      event_period_start,
+      event_period_end,
+      event_start_at,
+      event_end_at,
+      event_location,
+      event_location_map_url,
+      event_contact_name,
+      event_contact_phone,
+      event_notes,
+      related_entities,
+      direct_supervisor_entity,
+      billing_target_entity,
+      compensation_type,
+      brokerage_rate,
+      brokerage_notes,
       stores (
         id,
         name,
@@ -110,14 +135,9 @@ export default async function ProjectDetailPage({
           {decodeURIComponent(sp.error)}
         </p>
       )}
-      {sp.updated === "status" && (
+      {sp.updated === "project" && (
         <p className="rounded-md border border-green-600/30 bg-green-600/10 px-3 py-2 text-sm text-green-800 dark:text-green-200">
-          ステータスを更新しました。
-        </p>
-      )}
-      {sp.updated === "notes" && (
-        <p className="rounded-md border border-green-600/30 bg-green-600/10 px-3 py-2 text-sm text-green-800 dark:text-green-200">
-          メモを保存しました。
+          案件情報を更新しました。
         </p>
       )}
       <div className="space-y-1">
@@ -135,28 +155,197 @@ export default async function ProjectDetailPage({
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">ステータス</CardTitle>
-          <CardDescription>案件ステータスを更新します。</CardDescription>
+          <CardTitle className="text-base">案件情報編集</CardTitle>
         </CardHeader>
         <CardContent>
-          <form action={updateProjectStatus} className="flex flex-wrap items-end gap-3">
+          <form action={updateProject} className="space-y-6">
             <input type="hidden" name="id" value={project.id} />
             <div className="space-y-2">
-              <Label htmlFor="status">状態</Label>
-              <select
-                id="status"
-                name="status"
-                defaultValue={status}
-                className="flex h-9 min-w-48 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]"
-              >
-                {PROJECT_STATUS_ORDER.map((s) => (
-                  <option key={s} value={s}>
-                    {PROJECT_STATUS_LABELS[s]}
-                  </option>
-                ))}
-              </select>
+              <Label htmlFor="title">案件名</Label>
+              <Input id="title" name="title" required defaultValue={project.title} />
             </div>
-            <Button type="submit">更新</Button>
+            <div className="space-y-2">
+              <Label htmlFor="overview">概要（説明）</Label>
+              <Textarea id="overview" name="overview" rows={3} defaultValue={project.overview ?? ""} />
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="status">ステータス</Label>
+                <select
+                  id="status"
+                  name="status"
+                  defaultValue={status}
+                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]"
+                >
+                  {PROJECT_STATUS_ORDER.map((s) => (
+                    <option key={s} value={s}>
+                      {PROJECT_STATUS_LABELS[s]}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="store_id">主要イベント開催場所（既存マスタ）</Label>
+                <input type="hidden" name="store_id" value={project.store_id ?? ""} />
+                <Input id="store_id" value={st?.name ?? "未設定"} readOnly />
+              </div>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="event_period_start">期間（開始日）</Label>
+                <Input
+                  id="event_period_start"
+                  name="event_period_start"
+                  type="date"
+                  defaultValue={project.event_period_start ?? ""}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="event_period_end">期間（終了日）</Label>
+                <Input
+                  id="event_period_end"
+                  name="event_period_end"
+                  type="date"
+                  defaultValue={project.event_period_end ?? ""}
+                />
+              </div>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="event_start_at">日時（開始）</Label>
+                <Input
+                  id="event_start_at"
+                  name="event_start_at"
+                  type="datetime-local"
+                  defaultValue={toDatetimeLocal(project.event_start_at)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="event_end_at">日時（終了）</Label>
+                <Input
+                  id="event_end_at"
+                  name="event_end_at"
+                  type="datetime-local"
+                  defaultValue={toDatetimeLocal(project.event_end_at)}
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="event_location">場所</Label>
+              <Input
+                id="event_location"
+                name="event_location"
+                defaultValue={project.event_location ?? ""}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="event_location_map_url">GoogleマップURL</Label>
+              <Input
+                id="event_location_map_url"
+                name="event_location_map_url"
+                type="url"
+                defaultValue={project.event_location_map_url ?? ""}
+              />
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="event_contact_name">イベント場所の担当者</Label>
+                <Input
+                  id="event_contact_name"
+                  name="event_contact_name"
+                  defaultValue={project.event_contact_name ?? ""}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="event_contact_phone">電話番号</Label>
+                <Input
+                  id="event_contact_phone"
+                  name="event_contact_phone"
+                  defaultValue={project.event_contact_phone ?? ""}
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="event_notes">イベント場所の注意事項</Label>
+              <Textarea
+                id="event_notes"
+                name="event_notes"
+                rows={3}
+                defaultValue={project.event_notes ?? ""}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="related_entities">案件に関わる会社や店舗</Label>
+              <Textarea
+                id="related_entities"
+                name="related_entities"
+                rows={2}
+                defaultValue={project.related_entities ?? ""}
+              />
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="direct_supervisor_entity">直属の上司に当たる会社</Label>
+                <Input
+                  id="direct_supervisor_entity"
+                  name="direct_supervisor_entity"
+                  defaultValue={project.direct_supervisor_entity ?? ""}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="billing_target_entity">請求や見積もりを出す会社</Label>
+                <Input
+                  id="billing_target_entity"
+                  name="billing_target_entity"
+                  defaultValue={project.billing_target_entity ?? ""}
+                />
+              </div>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="compensation_type">案件の報酬形態</Label>
+                <select
+                  id="compensation_type"
+                  name="compensation_type"
+                  defaultValue={project.compensation_type ?? ""}
+                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]"
+                >
+                  <option value="">未設定</option>
+                  <option value="daily">日当</option>
+                  <option value="commission">歩合</option>
+                </select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="brokerage_rate">中抜き率（%）</Label>
+                <Input
+                  id="brokerage_rate"
+                  name="brokerage_rate"
+                  type="number"
+                  min={0}
+                  max={100}
+                  step="0.01"
+                  defaultValue={project.brokerage_rate ?? ""}
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="brokerage_notes">報酬補足</Label>
+              <Textarea
+                id="brokerage_notes"
+                name="brokerage_notes"
+                rows={2}
+                defaultValue={project.brokerage_notes ?? ""}
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <Button type="submit">保存</Button>
+            </div>
+          </form>
+          <form action={deleteProject} className="mt-3">
+            <input type="hidden" name="id" value={project.id} />
+            <Button type="submit" variant="destructive">
+              この案件を削除
+            </Button>
           </form>
         </CardContent>
       </Card>
@@ -195,34 +384,14 @@ export default async function ProjectDetailPage({
               </p>
             )}
             <Link
-              href="/dashboard/stores"
+              href="/dashboard/projects"
               className="mt-2 inline-flex h-7 items-center justify-center rounded-[min(var(--radius-md),12px)] border border-border bg-background px-2.5 text-[0.8rem] font-medium hover:bg-muted"
             >
-              イベントマスタ一覧
+              案件タブでイベント管理
             </Link>
           </CardContent>
         </Card>
       )}
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">メモ</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <form action={updateProjectNotes} className="space-y-3">
-            <input type="hidden" name="id" value={project.id} />
-            <Textarea
-              name="notes"
-              rows={5}
-              defaultValue={project.notes ?? ""}
-              placeholder="共有メモ（初期版）"
-            />
-            <Button type="submit" size="sm">
-              保存
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
 
       <Card>
         <CardHeader>

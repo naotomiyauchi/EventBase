@@ -6,6 +6,7 @@ import { isAppManagerRole } from "@/lib/app-role";
 import { getCurrentProfile } from "@/lib/auth-profile";
 import { createClient } from "@/lib/supabase/server";
 import { billingToPdfBuffer } from "@/lib/billing-export";
+import { isSmtpConfigured, sendMailViaSmtp } from "@/lib/smtp-mail";
 
 function ymRange(ym: string) {
   const [y, m] = ym.split("-").map(Number);
@@ -137,31 +138,7 @@ export async function generateBillingDraftAction(formData: FormData) {
   });
 
   const baseAgencyId = mode === "project" ? rows[0]?.agency_id ?? null : agencyId;
-  let calculatedLines = [...lineRows];
-
-  if (baseAgencyId) {
-    const { data: agency } = await supabase
-      .from("agencies")
-      .select("fee_rate")
-      .eq("id", baseAgencyId)
-      .maybeSingle();
-    const feeRate = Number(agency?.fee_rate ?? 0);
-    if (Number.isFinite(feeRate) && feeRate > 0) {
-      const baseAmount = calculatedLines.reduce((s, l) => s + l.amount, 0);
-      const feeAmount = Math.round((baseAmount * feeRate) / 100);
-      if (feeAmount > 0) {
-        calculatedLines.push({
-          sort_order: 9990,
-          line_type: "agency_fee",
-          description: `代理店手数料 (${feeRate}%)`,
-          quantity: 1,
-          unit_price: feeAmount,
-          amount: feeAmount,
-          project_id: rows[0]?.project_id ?? projectId,
-        });
-      }
-    }
-  }
+  const calculatedLines = [...lineRows];
 
   const subtotal = calculatedLines.reduce((s, l) => s + l.amount, 0);
   const { tax, total } = calcTax(subtotal, Number.isFinite(taxRate) ? taxRate : 10);
@@ -355,21 +332,16 @@ export async function sendBillingEmailAction(formData: FormData) {
   }));
 
   const pdf = await billingToPdfBuffer(payload, linePayload);
-  const apiKey = process.env.RESEND_API_KEY;
   const from = process.env.BILLING_MAIL_FROM;
-  if (!apiKey || !from) {
-    redirect("/dashboard/billing?error=resend_not_configured");
+  if (!isSmtpConfigured() || !from) {
+    redirect("/dashboard/billing?error=smtp_not_configured");
   }
 
   const subject = `${doc.kind === "invoice" ? "請求書" : "見積書"} ${doc.doc_no}`;
   const body = `${subject} をお送りします。ご確認ください。`;
-  const response = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
+  let providerMessageId: string | null = null;
+  try {
+    providerMessageId = await sendMailViaSmtp({
       from,
       to: [toEmail],
       bcc: bccEmail ? [bccEmail] : undefined,
@@ -379,13 +351,16 @@ export async function sendBillingEmailAction(formData: FormData) {
         {
           filename: `${doc.doc_no}.pdf`,
           content: pdf.toString("base64"),
+          encoding: "base64",
         },
       ],
-    }),
-  });
-  const json = (await response.json().catch(() => ({}))) as { id?: string; message?: string };
-  if (!response.ok) {
-    redirect(`/dashboard/billing?error=${encodeURIComponent(json.message ?? "mail_send_failed")}`);
+    });
+  } catch (e) {
+    redirect(
+      `/dashboard/billing?error=${encodeURIComponent(
+        e instanceof Error ? e.message : "mail_send_failed"
+      )}`
+    );
   }
 
   await supabase.from("billing_send_logs").insert({
@@ -394,8 +369,8 @@ export async function sendBillingEmailAction(formData: FormData) {
     bcc_email: bccEmail,
     subject,
     body,
-    provider: "resend",
-    provider_message_id: json.id ?? null,
+    provider: "smtp",
+    provider_message_id: providerMessageId,
     sent_by: profile.id,
     status: "sent",
   });

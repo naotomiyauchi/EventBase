@@ -48,6 +48,8 @@ export default async function SettingsStaffDetailPage({
     ng_removed?: string;
     updated?: string;
     registered?: string;
+    google_notice_sent?: string;
+    google_notice_failed?: string;
     error?: string;
     google_export?: string;
     password_reset?: string;
@@ -249,6 +251,16 @@ export default async function SettingsStaffDetailPage({
       {sp.registered && (
         <p className="text-sm text-green-600 dark:text-green-400">
           スタッフを登録しました。
+        </p>
+      )}
+      {sp.google_notice_sent && (
+        <p className="text-sm text-green-600 dark:text-green-400">
+          Google 連携通知を送信しました。
+        </p>
+      )}
+      {sp.google_notice_failed && (
+        <p className="rounded-md border border-amber-500/50 bg-amber-50 px-3 py-2 text-sm text-amber-950 dark:bg-amber-950/40 dark:text-amber-50">
+          スタッフ登録は完了しましたが、Google 連携通知の送信に失敗しました。
         </p>
       )}
       {sp.error && (

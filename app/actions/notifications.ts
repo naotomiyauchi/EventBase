@@ -4,12 +4,11 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/auth-profile";
-import { isAppManagerRole } from "@/lib/app-role";
 
 export async function markNotificationReadAction(formData: FormData) {
   const supabase = await createClient();
   const profile = await getCurrentProfile(supabase);
-  if (!profile || !isAppManagerRole(profile.role)) {
+  if (!profile) {
     redirect("/dashboard?error=forbidden");
   }
   const id = String(formData.get("id") ?? "").trim();
@@ -31,7 +30,7 @@ export async function markNotificationReadAction(formData: FormData) {
 export async function markAllNotificationsReadAction() {
   const supabase = await createClient();
   const profile = await getCurrentProfile(supabase);
-  if (!profile || !isAppManagerRole(profile.role)) {
+  if (!profile) {
     redirect("/dashboard?error=forbidden");
   }
   const { error } = await supabase

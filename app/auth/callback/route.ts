@@ -4,8 +4,7 @@ import { cookies } from "next/headers";
 
 /**
  * OAuth 完了後、Supabase セッションに含まれる Google の
- * provider_refresh_token を管理者・チームリーダー分だけ DB に保存する。
- * （Sheets API は同一クライアント ID でリフレッシュする）
+ * provider_refresh_token を DB に保存する。
  */
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
@@ -44,19 +43,56 @@ export async function GET(request: Request) {
   const refresh = session.provider_refresh_token;
 
   if (refresh) {
-    const { data: prof } = await supabase
-      .from("profiles")
-      .select("role")
-      .eq("id", session.user.id)
-      .maybeSingle();
+    await supabase.from("user_google_credentials").upsert({
+      user_id: session.user.id,
+      google_refresh_token: refresh,
+      updated_at: new Date().toISOString(),
+    });
 
-    const role = prof?.role as string | undefined;
-    if (role === "admin" || role === "team_leader") {
-      await supabase.from("user_google_credentials").upsert({
-        user_id: session.user.id,
-        google_refresh_token: refresh,
-        updated_at: new Date().toISOString(),
-      });
+    const email = (session.user.email ?? "").trim().toLowerCase();
+    if (email) {
+      const [{ data: prof }, { data: staff }] = await Promise.all([
+        supabase
+          .from("profiles")
+          .select("tenant_id")
+          .eq("id", session.user.id)
+          .maybeSingle(),
+        supabase
+          .from("staff")
+          .select("id, tenant_id, name, email")
+          .ilike("email", email)
+          .limit(1)
+          .maybeSingle(),
+      ]);
+      const tenantId = staff?.tenant_id ?? prof?.tenant_id ?? null;
+      if (tenantId) {
+        const staffName = staff?.name ?? session.user.user_metadata?.display_name ?? "スタッフ";
+        const targetEmail = (staff?.email ?? email).toLowerCase();
+        await supabase.from("app_notifications").insert([
+          {
+            tenant_id: tenantId,
+            type: "google_link_completed_manager",
+            title: `${staffName}さんがGoogle連携を完了させました。`,
+            body: null,
+            metadata: {
+              staff_name: staffName,
+              target_email: targetEmail,
+              target_staff_id: staff?.id ?? null,
+            },
+          },
+          {
+            tenant_id: tenantId,
+            type: "google_link_completed_staff",
+            title: "Google連携を完了させました。",
+            body: null,
+            metadata: {
+              target_email: targetEmail,
+              target_staff_id: staff?.id ?? null,
+              staff_name: staffName,
+            },
+          },
+        ]);
+      }
     }
   }
 
