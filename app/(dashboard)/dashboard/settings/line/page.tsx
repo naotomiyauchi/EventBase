@@ -1,28 +1,20 @@
 import { notFound } from "next/navigation";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/auth-profile";
 import { isAppManagerRole } from "@/lib/app-role";
-import { setupLineRichMenuAction } from "@/app/actions/line";
 
 export default async function LineSettingsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ richmenu?: string; error?: string }>;
+  searchParams: Promise<{ error?: string }>;
 }) {
   const sp = await searchParams;
   const supabase = await createClient();
   const profile = await getCurrentProfile(supabase);
   if (!profile || !isAppManagerRole(profile.role)) notFound();
 
-  const [{ data: cfg }, { data: links }, { data: logs }] = await Promise.all([
-    supabase
-      .from("tenant_plugin_configs")
-      .select("config")
-      .eq("tenant_id", profile.tenant_id)
-      .eq("module_key", "line_config")
-      .maybeSingle(),
+  const [{ data: links }, { data: logs }] = await Promise.all([
     supabase
       .from("line_user_links")
       .select("staff ( name, email ), line_user_id, linked_at")
@@ -35,21 +27,15 @@ export default async function LineSettingsPage({
       .limit(20),
   ]);
 
-  const richMenuId =
-    (cfg?.config as { rich_menu_id?: string } | null)?.rich_menu_id ?? null;
-
   return (
     <div className="space-y-6">
       <div>
         <h2 className="text-lg font-semibold tracking-tight">LINE連携</h2>
         <p className="text-sm text-muted-foreground">
-          公式LINEのリッチメニューを作成し、スタッフがLINE内で入力した希望休を取り込みます。
+          リッチメニューは LINE 側で作成し、下記の「送信する文言」と一致させてください。Webhook がメッセージ内容で連携・希望休などを判別します。
         </p>
       </div>
 
-      {sp.richmenu ? (
-        <p className="text-sm text-green-600 dark:text-green-400">リッチメニューを更新しました。</p>
-      ) : null}
       {sp.error ? (
         <p className="rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm text-destructive">
           {decodeURIComponent(sp.error)}
@@ -58,23 +44,70 @@ export default async function LineSettingsPage({
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">公式LINEコンテンツ作成</CardTitle>
+          <CardTitle className="text-base">このシステムと連携するリッチメニューの作り方</CardTitle>
           <CardDescription>
-            3ボタン（連携設定 / 希望休入力 / 使い方）のリッチメニューを自動作成して配信します。
+            LINE Official Account Manager または LINE Developers のリッチメニュー機能で、手動作成・公開します。
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-3">
-          <form action={setupLineRichMenuAction}>
-            <Button type="submit">リッチメニューを作成 / 更新</Button>
-          </form>
+        <CardContent className="space-y-4 text-sm">
+          <ol className="list-decimal space-y-2 pl-5 text-muted-foreground">
+            <li>
+              <span className="text-foreground">サイズ</span>
+              ：テンプレートは LINE の指定サイズに合わせます（例: フル幅 2500×1686）。画像をアップロードし、タップ領域を配置します。
+            </li>
+            <li>
+              <span className="text-foreground">アクション種別</span>
+              ：各ボタンは「
+              <strong className="text-foreground">メッセージを送信</strong>
+              」（Messaging API では <code className="text-xs">type: message</code>
+              ）にします。URI オープンやポストバックだけでは、本システムの会話フローは動きません。
+            </li>
+            <li>
+              <span className="text-foreground">送信テキスト（必ず一致）</span>
+              ：ボタンごとに送る文字列は次のいずれかと
+              <strong className="text-foreground">完全一致</strong>
+              にしてください（前後に空白・改行を付けない）。
+              <ul className="mt-2 list-disc space-y-1 pl-5 font-mono text-xs text-foreground">
+                <li>
+                  <code>連携設定</code> … スタッフがメールアドレスを送る前の案内を返します。
+                </li>
+                <li>
+                  <code>希望休入力</code> … 希望休の入力モードに入ります。
+                </li>
+                <li>
+                  <code>使い方</code> … 簡易ヘルプを返します（<code>help</code> / <code>ヘルプ</code> でも可）。
+                </li>
+                <li>
+                  <code>シフト</code> … 連携済みの場合、管理画面の「通知」に届きます（希望休入力モードには入りません）。
+                </li>
+              </ul>
+            </li>
+            <li>
+              <span className="text-foreground">希望休の送り方（メッセージ本文）</span>
+              ：モード案内後、ユーザーが送るテキスト例は{" "}
+              <code className="text-xs">2026-04-30 私用</code> または{" "}
+              <code className="text-xs">希望休 2026-04-30 私用</code> です。
+            </li>
+            <li>
+              <span className="text-foreground">領収書（任意）</span>
+              ：トークで <code className="text-xs">領収書</code> などと送ると画像受付モードに入ります。リッチメニューに同じ文言のボタンを付けても構いません。
+            </li>
+            <li>
+              <span className="text-foreground">公開</span>
+              ：リッチメニューを作成したら、デフォルト表示や対象ユーザーへのリンクを LINE 管理画面で有効化します。
+            </li>
+          </ol>
           <p className="text-xs text-muted-foreground">
-            現在の rich_menu_id: {richMenuId ?? "未設定"}
+            公式ドキュメント:{" "}
+            <a
+              href="https://developers.line.biz/ja/docs/messaging-api/use-rich-menus/"
+              className="underline underline-offset-2"
+              target="_blank"
+              rel="noreferrer"
+            >
+              リッチメニューの使い方（LINE Developers）
+            </a>
           </p>
-          <div className="rounded-md border bg-muted/20 p-3 text-xs text-muted-foreground">
-            <p>入力フロー:</p>
-            <p>1. 「連携設定」→ メールアドレス送信</p>
-            <p>2. 「希望休入力」→ 日付と理由を送信（例: 2026-04-30 私用）</p>
-          </div>
         </CardContent>
       </Card>
 

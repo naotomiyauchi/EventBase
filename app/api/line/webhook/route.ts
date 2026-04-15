@@ -81,6 +81,43 @@ export async function POST(req: Request) {
           }
         }
 
+        /** Staff sends exact text 「シフト」 → app notification for managers */
+        if (!replied && text === "シフト") {
+          const { data: shiftLink } = await admin
+            .from("line_user_links")
+            .select("staff_id, tenant_id, staff ( name )")
+            .eq("line_user_id", userId)
+            .maybeSingle();
+          if (shiftLink?.staff_id && shiftLink.tenant_id) {
+            tenantId = shiftLink.tenant_id;
+            const st = Array.isArray(shiftLink.staff) ? shiftLink.staff[0] : shiftLink.staff;
+            const staffName = st?.name ?? "スタッフ";
+            await admin.from("app_notifications").insert({
+              tenant_id: shiftLink.tenant_id,
+              type: "line_shift_inquiry",
+              title: "LINEから「シフト」の問い合わせ",
+              body: `${staffName}さんが「シフト」と送信しました。`,
+              metadata: {
+                staff_id: shiftLink.staff_id,
+                line_user_id: userId,
+              },
+            });
+            if (ev.replyToken) {
+              await replyLineMessage(
+                ev.replyToken,
+                "受け付けました。担当者に通知しています。のちほど管理画面の「通知」でご確認ください。"
+              );
+              replied = true;
+            }
+          } else if (ev.replyToken) {
+            await replyLineMessage(
+              ev.replyToken,
+              "先にメールアドレスで連携を完了してください。（「連携設定」から）"
+            );
+            replied = true;
+          }
+        }
+
         if (!replied && (text === "連携設定" || (activeSession == null && msgType === "text" && parseLinkCommand(text)))) {
           if (tenantId) {
             await admin.from("line_input_sessions").upsert(
@@ -172,7 +209,7 @@ export async function POST(req: Request) {
         if (!replied && trigger === "help" && ev.replyToken) {
           await replyLineMessage(
             ev.replyToken,
-            "使い方:\n1) 連携設定 を押してメール連携\n2) 希望休入力 で日付を送信\n例: 希望休 2026-04-30 私用"
+            "使い方:\n1) 連携設定 でメール連携\n2) 希望休入力 で日付を送信（例: 2026-04-30 私用）\n3) 「シフト」と送ると担当者へ通知されます"
           );
           replied = true;
         }
@@ -345,7 +382,7 @@ export async function POST(req: Request) {
         if (!replied && ev.replyToken) {
           await replyLineMessage(
             ev.replyToken,
-            "受付コマンド:\n1) 連携 メールアドレス\n2) 領収書（画像受付）\n3) 希望休 YYYY-MM-DD 理由\n例) 希望休 2026-04-30 私用"
+            "受付コマンド:\n1) 連携 メールアドレス\n2) 「シフト」（担当者へ通知）\n3) 領収書（画像受付）\n4) 希望休 YYYY-MM-DD 理由\n例) 希望休 2026-04-30 私用"
           );
         }
       }
