@@ -48,7 +48,6 @@ export default async function DashboardGroupLayout({
       const { count } = await supabase
         .from("app_notifications")
         .select("id", { head: true, count: "exact" })
-        .eq("tenant_id", profile.tenant_id)
         .is("read_at", null);
       unreadNotifications = count ?? 0;
     }

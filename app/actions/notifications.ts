@@ -18,8 +18,7 @@ export async function markNotificationReadAction(formData: FormData) {
   const { error } = await supabase
     .from("app_notifications")
     .update({ read_at: new Date().toISOString() })
-    .eq("id", id)
-    .eq("tenant_id", profile.tenant_id);
+    .eq("id", id);
   if (error) {
     redirect(`/dashboard/notifications?error=${encodeURIComponent(error.message)}`);
   }
@@ -38,7 +37,6 @@ export async function markAllNotificationsReadAction() {
   const { error } = await supabase
     .from("app_notifications")
     .update({ read_at: new Date().toISOString() })
-    .eq("tenant_id", profile.tenant_id)
     .is("read_at", null);
   if (error) {
     redirect(`/dashboard/notifications?error=${encodeURIComponent(error.message)}`);

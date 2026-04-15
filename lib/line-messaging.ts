@@ -72,8 +72,22 @@ export function parseLinkCommand(text: string): { email: string } | null {
   return { email: e[1].toLowerCase() };
 }
 
+/** Normalize LINE user text (NFKC, strip zero-width) for keyword matching */
+export function normalizeLineKeyword(text: string): string {
+  return text
+    .replace(/[\u200B-\u200D\uFEFF]/g, "")
+    .normalize("NFKC")
+    .trim()
+    .replace(/\s+/g, "");
+}
+
+/** True if user message is shift inquiry after normalization */
+export function isLineShiftInquiryText(text: string): boolean {
+  return normalizeLineKeyword(text) === normalizeLineKeyword("シフト");
+}
+
 export function normalizeModeTrigger(text: string): "receipt_mode" | "holiday_mode" | "help" | "end" | null {
-  const t = text.trim();
+  const t = normalizeLineKeyword(text);
   if (["領収書", "receipt", "レシート"].includes(t)) return "receipt_mode";
   if (["希望休", "休み", "希望休入力"].includes(t)) return "holiday_mode";
   if (["使い方", "help", "ヘルプ"].includes(t)) return "help";

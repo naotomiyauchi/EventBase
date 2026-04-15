@@ -34,7 +34,6 @@ export default async function NotificationsPage({
   const { data: rows } = await supabase
     .from("app_notifications")
     .select("id, type, title, body, read_at, created_at")
-    .eq("tenant_id", profile.tenant_id)
     .order("created_at", { ascending: false })
     .limit(200);
 

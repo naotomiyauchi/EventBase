@@ -3,6 +3,7 @@ import { createServiceRoleClient, isServiceRoleConfigured } from "@/lib/supabase
 import {
   fetchLineImageContent,
   isLineConfigured,
+  isLineShiftInquiryText,
   normalizeModeTrigger,
   parseLinkCommand,
   parseUnavailableCommand,
@@ -82,17 +83,20 @@ export async function POST(req: Request) {
         }
 
         /** Staff sends exact text 「シフト」 → app notification for managers */
-        if (!replied && text === "シフト") {
-          const { data: shiftLink } = await admin
+        if (!replied && isLineShiftInquiryText(text)) {
+          const { data: shiftLink, error: shiftLinkErr } = await admin
             .from("line_user_links")
             .select("staff_id, tenant_id, staff ( name )")
             .eq("line_user_id", userId)
             .maybeSingle();
-          if (shiftLink?.staff_id && shiftLink.tenant_id) {
+          if (shiftLinkErr) {
+            status = "error";
+            note = `shift_link:${shiftLinkErr.message}`;
+          } else if (shiftLink?.staff_id && shiftLink.tenant_id) {
             tenantId = shiftLink.tenant_id;
             const st = Array.isArray(shiftLink.staff) ? shiftLink.staff[0] : shiftLink.staff;
             const staffName = st?.name ?? "スタッフ";
-            await admin.from("app_notifications").insert({
+            const { error: insErr } = await admin.from("app_notifications").insert({
               tenant_id: shiftLink.tenant_id,
               type: "line_shift_inquiry",
               title: "LINEから「シフト」の問い合わせ",
@@ -102,7 +106,17 @@ export async function POST(req: Request) {
                 line_user_id: userId,
               },
             });
-            if (ev.replyToken) {
+            if (insErr) {
+              status = "error";
+              note = `app_notifications:${insErr.message}`;
+              if (ev.replyToken) {
+                await replyLineMessage(
+                  ev.replyToken,
+                  "通知の保存に失敗しました。時間をおいて再度お試しください。"
+                );
+                replied = true;
+              }
+            } else if (ev.replyToken) {
               await replyLineMessage(
                 ev.replyToken,
                 "受け付けました。担当者に通知しています。のちほど管理画面の「通知」でご確認ください。"
