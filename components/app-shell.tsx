@@ -16,6 +16,7 @@ import {
   User,
   Users,
   Wallet,
+  Bell,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { TenantLogo } from "@/components/tenant-logo";
@@ -64,6 +65,7 @@ type Props = {
   featureBilling?: boolean;
   /** anfra.jp 等 — 背景を黒ベースにして顧客ドメインと差別化 */
   anfraDarkShell?: boolean;
+  unreadNotifications?: number;
 };
 
 export function AppShell({
@@ -74,6 +76,7 @@ export function AppShell({
   tenantBranding,
   featureBilling = true,
   anfraDarkShell = false,
+  unreadNotifications = 0,
 }: Props) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = React.useState(false);
@@ -233,7 +236,24 @@ export function AppShell({
             </button>
             <TenantLogo logoUrl={logoUrl} width={34} height={34} className="rounded" />
           </div>
-          <div className="ml-auto md:ml-0">
+          <div className="ml-auto flex items-center gap-2 md:ml-0">
+            <Link
+              href="/dashboard/notifications"
+              className={cn(
+                "relative inline-flex h-9 w-9 items-center justify-center rounded-md",
+                anfraDarkShell
+                  ? "text-zinc-300 hover:bg-zinc-800"
+                  : "text-muted-foreground hover:bg-accent/50"
+              )}
+              aria-label="通知"
+            >
+              <Bell className="h-5 w-5" />
+              {unreadNotifications > 0 ? (
+                <span className="absolute -right-0.5 -top-0.5 inline-flex min-w-4 items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-semibold text-white">
+                  {unreadNotifications > 99 ? "99+" : unreadNotifications}
+                </span>
+              ) : null}
+            </Link>
             <UserMenu email={userEmail} canSignOut={showAuth} />
           </div>
         </header>

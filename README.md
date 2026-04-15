@@ -46,6 +46,8 @@ Webhook URL（LINE Developers 側）:
 
 - `https://<your-domain>/api/line/webhook`
 
+**307 Temporary Redirect になる場合:** Vercel などで **apex（`example.com`）→ `www` にリダイレクト**していると、`https://event-base.app/...` への POST が **307** になり、LINE の検証は失敗します。**リダイレクト後の正規 URL** を登録してください（例: `https://www.event-base.app/api/line/webhook`）。`curl -sI -X POST "https://あなたのドメイン/api/line/webhook"` で `location:` やステータスを確認できます。
+
 スタッフの利用手順（リッチメニュー）:
 
 1. 管理画面 `/dashboard/settings/line` で「リッチメニューを作成 / 更新」

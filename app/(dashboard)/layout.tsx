@@ -19,6 +19,7 @@ export default async function DashboardGroupLayout({
   let showSettingsNav = false;
   let tenantBranding: TenantBranding | null = null;
   let featureBilling = true;
+  let unreadNotifications = 0;
   const configured = isSupabaseConfigured();
   const anfraDarkShell = await isAnfraHost();
 
@@ -44,6 +45,12 @@ export default async function DashboardGroupLayout({
           true
         );
       }
+      const { count } = await supabase
+        .from("app_notifications")
+        .select("id", { head: true, count: "exact" })
+        .eq("tenant_id", profile.tenant_id)
+        .is("read_at", null);
+      unreadNotifications = count ?? 0;
     }
   }
 
@@ -56,6 +63,7 @@ export default async function DashboardGroupLayout({
         tenantBranding={tenantBranding}
         featureBilling={featureBilling}
         anfraDarkShell={anfraDarkShell}
+        unreadNotifications={unreadNotifications}
       >
         {!configured && <SetupBanner />}
         {children}

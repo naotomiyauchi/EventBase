@@ -22,7 +22,7 @@ export async function setupLineRichMenuAction() {
     redirect(`/dashboard/settings/line?error=${encodeURIComponent(result.error ?? "line_api_error")}`);
   }
 
-  await supabase.from("tenant_plugin_configs").upsert(
+  const { error: cfgErr } = await supabase.from("tenant_plugin_configs").upsert(
     {
       tenant_id: profile.tenant_id,
       module_key: "line_config",
@@ -33,6 +33,9 @@ export async function setupLineRichMenuAction() {
     },
     { onConflict: "tenant_id,module_key" }
   );
+  if (cfgErr) {
+    redirect(`/dashboard/settings/line?error=${encodeURIComponent(cfgErr.message)}`);
+  }
 
   revalidatePath("/dashboard/settings/line");
   redirect("/dashboard/settings/line?richmenu=1");
