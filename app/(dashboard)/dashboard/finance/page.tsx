@@ -1,17 +1,25 @@
 import { notFound } from "next/navigation";
+import Link from "next/link";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/auth-profile";
 import { isAppManagerRole } from "@/lib/app-role";
 import { ReceiptBoxClient } from "@/components/receipt-box-client";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Button } from "@/components/ui/button";
+import {
+  deleteFinanceReceiptAction,
+  updateFinanceReceiptAction,
+} from "@/app/actions/finance";
 
 function yen(v: number | null | undefined) {
   return `${Math.round(Number(v ?? 0)).toLocaleString("ja-JP")}円`;
 }
 
-export default async function FinancePage() {
+export default async function FinancePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ month?: string; updated?: string; deleted?: string; error?: string }>;
+}) {
   const supabase = await createClient();
   const profile = await getCurrentProfile(supabase);
   if (!profile || !isAppManagerRole(profile.role)) notFound();
@@ -68,12 +76,27 @@ export default async function FinancePage() {
     }
   }
 
-  const thisMonth = new Intl.DateTimeFormat("en-CA", {
+  const baseMonth = new Intl.DateTimeFormat("en-CA", {
     timeZone: "Asia/Tokyo",
     year: "numeric",
     month: "2-digit",
   }).format(new Date());
-  const monthRows = rows.filter((r) => r.expense_date.startsWith(thisMonth));
+  const sp = await searchParams;
+  const selectedMonth =
+    sp?.month && /^\d{4}-\d{2}$/.test(sp.month) ? sp.month : baseMonth;
+  const [sy, sm] = selectedMonth.split("-").map(Number);
+  const prevMonth = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Tokyo",
+    year: "numeric",
+    month: "2-digit",
+  }).format(new Date(Date.UTC(sy, sm - 2, 1)));
+  const nextMonth = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Tokyo",
+    year: "numeric",
+    month: "2-digit",
+  }).format(new Date(Date.UTC(sy, sm, 1)));
+
+  const monthRows = rows.filter((r) => r.expense_date.startsWith(selectedMonth));
   const monthTotal = monthRows.reduce((s, r) => s + Number(r.amount ?? 0), 0);
   const monthTax = monthRows.reduce((s, r) => s + Number(r.tax_amount ?? 0), 0);
   const cashRows = monthRows.filter((r) => r.payment_method === "cash");
@@ -85,7 +108,7 @@ export default async function FinancePage() {
     return acc;
   }, {});
 
-  const cashbookRows = (cashbook ?? []) as {
+  const allCashbookRows = (cashbook ?? []) as {
     id: string;
     entry_date: string;
     entry_type: "income" | "expense" | "adjustment";
@@ -94,6 +117,7 @@ export default async function FinancePage() {
     description: string | null;
     amount: number;
   }[];
+  const cashbookRows = allCashbookRows.filter((r) => r.entry_date.startsWith(selectedMonth));
 
   const running = [...cashbookRows]
     .reverse()
@@ -115,7 +139,57 @@ export default async function FinancePage() {
         <p className="text-sm text-muted-foreground">
           LINE連携・手動登録した領収書を、出納帳と一体で確認できます。
         </p>
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <Link
+            href={`/dashboard/finance?month=${prevMonth}`}
+            className="inline-flex h-8 items-center rounded-md border px-3 text-xs hover:bg-muted/60"
+          >
+            前月
+          </Link>
+          <Link
+            href={`/dashboard/finance?month=${baseMonth}`}
+            className="inline-flex h-8 items-center rounded-md border px-3 text-xs hover:bg-muted/60"
+          >
+            今月
+          </Link>
+          <Link
+            href={`/dashboard/finance?month=${nextMonth}`}
+            className="inline-flex h-8 items-center rounded-md border px-3 text-xs hover:bg-muted/60"
+          >
+            来月
+          </Link>
+          <span className="ml-1 rounded-md bg-muted px-2 py-1 text-xs text-muted-foreground">
+            表示月: {selectedMonth}
+          </span>
+          <a
+            href={`/api/finance/export?format=xlsx&month=${selectedMonth}`}
+            className="ml-auto inline-flex h-8 items-center rounded-md border px-3 text-xs hover:bg-muted/60"
+          >
+            スプレッドシート出力
+          </a>
+          <a
+            href={`/api/finance/export?format=pdf&month=${selectedMonth}`}
+            className="inline-flex h-8 items-center rounded-md border px-3 text-xs hover:bg-muted/60"
+          >
+            PDF出力
+          </a>
+        </div>
       </div>
+      {sp.updated === "receipt" ? (
+        <p className="rounded-md border border-green-600/30 bg-green-600/10 px-3 py-2 text-sm text-green-700 dark:text-green-300">
+          領収書を更新しました。
+        </p>
+      ) : null}
+      {sp.deleted === "receipt" ? (
+        <p className="rounded-md border border-green-600/30 bg-green-600/10 px-3 py-2 text-sm text-green-700 dark:text-green-300">
+          領収書を削除しました。
+        </p>
+      ) : null}
+      {sp.error ? (
+        <p className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+          {decodeURIComponent(sp.error)}
+        </p>
+      ) : null}
 
       <div className="grid gap-4 md:grid-cols-3">
         <Card className="border-border/70 bg-card/80 shadow-xs">
@@ -163,38 +237,118 @@ export default async function FinancePage() {
         </CardContent>
       </Card>
 
-      <Tabs defaultValue="cashbook">
+      <Tabs defaultValue="receipts">
         <TabsList className="grid w-full max-w-2xl grid-cols-3 rounded-xl border bg-card/70 p-1">
-          <TabsTrigger value="cashbook">出納帳</TabsTrigger>
-          <TabsTrigger value="category">当月カテゴリ別経費</TabsTrigger>
           <TabsTrigger value="receipts">領収書一覧</TabsTrigger>
+          <TabsTrigger value="category">当月カテゴリ別経費</TabsTrigger>
+          <TabsTrigger value="cashbook">出納帳</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="cashbook" className="mt-4">
+        <TabsContent value="receipts" className="mt-4">
           <Card className="border-border/70 shadow-xs">
             <CardHeader>
-              <CardTitle className="text-base">出納帳</CardTitle>
-              <CardDescription>領収書登録で自動記帳（収入/調整は今後追加）</CardDescription>
+              <CardTitle className="text-base">領収書一覧</CardTitle>
+              <CardDescription>会計入力前の確認用（税額・案件・代理店で検索しやすい構成）</CardDescription>
             </CardHeader>
             <CardContent className="space-y-2">
-              {cashbookRows.length === 0 ? (
-                <p className="text-sm text-muted-foreground">データがありません。</p>
+              {rows.length === 0 ? (
+                <p className="text-sm text-muted-foreground">まだ領収書がありません。</p>
               ) : (
-                cashbookRows.map((r) => (
-                  <div key={r.id} className="space-y-1 rounded-lg border bg-card/70 px-3 py-2 text-sm">
-                    <div className="flex items-center justify-between">
-                      <span>{r.entry_date}</span>
-                      <span className={r.entry_type === "income" ? "text-emerald-600" : "text-rose-600"}>
-                        {r.entry_type === "income" ? "+" : "-"}
-                        {yen(r.amount)}
-                      </span>
+                rows.map((r) => (
+                  <div key={r.id} className="space-y-2 rounded-lg border bg-card/70 px-3 py-2 text-sm">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <p className="font-medium">
+                        {r.expense_date} / {r.vendor || "支払先未入力"} / {yen(r.amount)}
+                      </p>
+                      {signedMap.get(r.file_path) ? (
+                        <a
+                          href={signedMap.get(r.file_path)}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-xs text-primary underline"
+                        >
+                          領収書を開く
+                        </a>
+                      ) : null}
                     </div>
                     <p className="text-xs text-muted-foreground">
-                      {r.account} / {r.category ?? "other"} / {r.description ?? "—"}
+                      {r.category} / {r.payment_method} / 税額 {yen(r.tax_amount)} / 案件:{" "}
+                      {r.projects?.[0]?.title ?? "未紐付け"} / 代理店: {r.agencies?.[0]?.name ?? "未紐付け"}
                     </p>
-                    <p className="text-xs text-muted-foreground">
-                      累計残高: {yen(balanceMap.get(r.id) ?? 0)}
-                    </p>
+                    {r.memo ? <p className="text-xs text-muted-foreground">{r.memo}</p> : null}
+                    <details className="rounded-md border bg-background/50 p-2">
+                      <summary className="cursor-pointer text-xs font-medium text-primary">
+                        編集 / 削除
+                      </summary>
+                      <div className="mt-2 space-y-2">
+                        <form action={updateFinanceReceiptAction} className="space-y-2">
+                          <input type="hidden" name="id" value={r.id} />
+                          <input type="hidden" name="month" value={selectedMonth} />
+                          <div className="grid gap-2 sm:grid-cols-2">
+                            <input
+                              name="vendor"
+                              defaultValue={r.vendor ?? ""}
+                              placeholder="支払先"
+                              className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+                            />
+                            <input
+                              name="amount"
+                              type="number"
+                              min={0}
+                              step={1}
+                              defaultValue={Math.round(Number(r.amount ?? 0))}
+                              className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+                            />
+                            <input
+                              name="tax_amount"
+                              type="number"
+                              min={0}
+                              step={1}
+                              defaultValue={Math.round(Number(r.tax_amount ?? 0))}
+                              className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+                            />
+                            <select
+                              name="payment_method"
+                              defaultValue={r.payment_method ?? "other"}
+                              className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+                            >
+                              <option value="cash">cash</option>
+                              <option value="bank">bank</option>
+                              <option value="card">card</option>
+                              <option value="other">other</option>
+                            </select>
+                            <input
+                              name="category"
+                              defaultValue={r.category ?? "other"}
+                              className="h-9 rounded-md border border-input bg-background px-3 text-sm sm:col-span-2"
+                            />
+                            <textarea
+                              name="memo"
+                              defaultValue={r.memo ?? ""}
+                              rows={3}
+                              className="rounded-md border border-input bg-background px-3 py-2 text-sm sm:col-span-2"
+                            />
+                          </div>
+                          <button
+                            type="submit"
+                            className="inline-flex h-8 items-center rounded-md border border-primary/40 bg-primary px-3 text-xs font-medium text-white"
+                          >
+                            保存
+                          </button>
+                        </form>
+                        <form action={deleteFinanceReceiptAction}>
+                          <input type="hidden" name="id" value={r.id} />
+                          <input type="hidden" name="month" value={selectedMonth} />
+                          <input type="hidden" name="file_path" value={r.file_path} />
+                          <button
+                            type="submit"
+                            className="inline-flex h-8 items-center rounded-md border border-destructive/40 bg-destructive px-3 text-xs font-medium text-white"
+                          >
+                            削除
+                          </button>
+                        </form>
+                      </div>
+                    </details>
                   </div>
                 ))
               )}
@@ -224,38 +378,31 @@ export default async function FinancePage() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="receipts" className="mt-4">
+        <TabsContent value="cashbook" className="mt-4">
           <Card className="border-border/70 shadow-xs">
             <CardHeader>
-              <CardTitle className="text-base">領収書一覧</CardTitle>
-              <CardDescription>会計入力前の確認用（税額・案件・代理店で検索しやすい構成）</CardDescription>
+              <CardTitle className="text-base">出納帳</CardTitle>
+              <CardDescription>領収書登録で自動記帳（収入/調整は今後追加）</CardDescription>
             </CardHeader>
             <CardContent className="space-y-2">
-              {rows.length === 0 ? (
-                <p className="text-sm text-muted-foreground">まだ領収書がありません。</p>
+              {cashbookRows.length === 0 ? (
+                <p className="text-sm text-muted-foreground">データがありません。</p>
               ) : (
-                rows.map((r) => (
+                cashbookRows.map((r) => (
                   <div key={r.id} className="space-y-1 rounded-lg border bg-card/70 px-3 py-2 text-sm">
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <p className="font-medium">
-                        {r.expense_date} / {r.vendor || "支払先未入力"} / {yen(r.amount)}
-                      </p>
-                      {signedMap.get(r.file_path) ? (
-                        <a
-                          href={signedMap.get(r.file_path)}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="text-xs text-primary underline"
-                        >
-                          領収書を開く
-                        </a>
-                      ) : null}
+                    <div className="flex items-center justify-between">
+                      <span>{r.entry_date}</span>
+                      <span className={r.entry_type === "income" ? "text-emerald-600" : "text-rose-600"}>
+                        {r.entry_type === "income" ? "+" : "-"}
+                        {yen(r.amount)}
+                      </span>
                     </div>
                     <p className="text-xs text-muted-foreground">
-                      {r.category} / {r.payment_method} / 税額 {yen(r.tax_amount)} / 案件:{" "}
-                      {r.projects?.[0]?.title ?? "未紐付け"} / 代理店: {r.agencies?.[0]?.name ?? "未紐付け"}
+                      {r.account} / {r.category ?? "other"} / {r.description ?? "—"}
                     </p>
-                    {r.memo ? <p className="text-xs text-muted-foreground">{r.memo}</p> : null}
+                    <p className="text-xs text-muted-foreground">
+                      累計残高: {yen(balanceMap.get(r.id) ?? 0)}
+                    </p>
                   </div>
                 ))
               )}
