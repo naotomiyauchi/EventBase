@@ -66,6 +66,7 @@ type Props = {
   /** anfra.jp 等 — 背景を黒ベースにして顧客ドメインと差別化 */
   anfraDarkShell?: boolean;
   unreadNotifications?: number;
+  forceWhiteLogo?: boolean;
 };
 
 export function AppShell({
@@ -77,6 +78,7 @@ export function AppShell({
   featureBilling = true,
   anfraDarkShell = false,
   unreadNotifications = 0,
+  forceWhiteLogo = false,
 }: Props) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = React.useState(false);
@@ -178,7 +180,7 @@ export function AppShell({
             anfraDarkShell && "border-zinc-800"
           )}
         >
-          <TenantLogo logoUrl={logoUrl} width={44} height={44} className="rounded" />
+          <TenantLogo logoUrl={logoUrl} width={44} height={44} className="rounded" forceWhiteLogo={forceWhiteLogo} />
         </div>
         <div className="flex h-[calc(100svh-3.5rem)] flex-col">
           <nav className="flex-1 space-y-3 overflow-y-auto p-3">
@@ -235,7 +237,7 @@ export function AppShell({
             >
               <Menu className="h-5 w-5" />
             </button>
-            <TenantLogo logoUrl={logoUrl} width={34} height={34} className="rounded" />
+            <TenantLogo logoUrl={logoUrl} width={34} height={34} className="rounded" forceWhiteLogo={forceWhiteLogo} />
           </div>
           <div className="ml-auto flex items-center gap-2 md:ml-0">
             <Link
@@ -278,7 +280,7 @@ export function AppShell({
               className={cn("border-b", anfraDarkShell && "border-zinc-800")}
             >
               <SheetTitle className="flex items-center gap-2">
-                <TenantLogo logoUrl={logoUrl} width={40} height={40} className="rounded" />
+                <TenantLogo logoUrl={logoUrl} width={40} height={40} className="rounded" forceWhiteLogo={forceWhiteLogo} />
               </SheetTitle>
             </SheetHeader>
             <div className="flex h-full flex-col">

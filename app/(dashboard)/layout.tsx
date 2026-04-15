@@ -6,7 +6,7 @@ import { getCurrentProfile } from "@/lib/auth-profile";
 import { getTenantFeatureFlag } from "@/lib/feature-flags";
 import { isSupabaseConfigured } from "@/lib/env";
 import { createClient } from "@/lib/supabase/server";
-import { isAnfraHost } from "@/lib/anfra-host";
+import { isAnfraHost, isWhiteLogoHost } from "@/lib/anfra-host";
 import { resolveTenantForDashboard } from "@/lib/tenant-resolve";
 import type { TenantBranding } from "@/lib/tenant-branding";
 
@@ -22,6 +22,7 @@ export default async function DashboardGroupLayout({
   let unreadNotifications = 0;
   const configured = isSupabaseConfigured();
   const anfraDarkShell = await isAnfraHost();
+  const forceWhiteLogo = await isWhiteLogoHost();
 
   if (configured) {
     const supabase = await createClient();
@@ -63,6 +64,7 @@ export default async function DashboardGroupLayout({
         featureBilling={featureBilling}
         anfraDarkShell={anfraDarkShell}
         unreadNotifications={unreadNotifications}
+        forceWhiteLogo={forceWhiteLogo}
       >
         {!configured && <SetupBanner />}
         {children}

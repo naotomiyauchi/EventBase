@@ -8,10 +8,24 @@ type Props = {
   width: number;
   height: number;
   className?: string;
+  forceWhiteLogo?: boolean;
 };
 
 /** テナント固有 URL またはデフォルトの EventBase ロゴ */
-export function TenantLogo({ logoUrl, width, height, className }: Props) {
+export function TenantLogo({ logoUrl, width, height, className, forceWhiteLogo = false }: Props) {
+  if (forceWhiteLogo) {
+    return (
+      <Image
+        src="/logo-transparent_white.png"
+        alt=""
+        width={width}
+        height={height}
+        className={className}
+        style={{ width: "auto", height: "auto" }}
+      />
+    );
+  }
+
   const u = logoUrl?.trim();
   if (u) {
     return (

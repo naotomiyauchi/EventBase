@@ -1,6 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
-import { isAnfraHost } from "@/lib/anfra-host";
+import { isAnfraHost, isWhiteLogoHost } from "@/lib/anfra-host";
 import { isSupabaseConfigured } from "@/lib/env";
 import { createClient } from "@/lib/supabase/server";
 import { resolveTenantForHost } from "@/lib/tenant-resolve";
@@ -94,6 +94,7 @@ export default async function LoginPage({
   const supabase = await createClient();
   const tenant = await resolveTenantForHost(supabase);
   const anfraDark = await isAnfraHost();
+  const forceWhiteLogo = await isWhiteLogoHost();
 
   return (
     <div
@@ -173,6 +174,7 @@ export default async function LoginPage({
           nextPath={nextPath}
           tenant={tenant}
           anfraDark={anfraDark}
+          forceWhiteLogo={forceWhiteLogo}
         />
       </div>
     </div>

@@ -22,9 +22,15 @@ export type LoginFormProps = {
   tenant?: TenantResolvePayload | null;
   /** anfra.jp 系 — ログインカードをダークに */
   anfraDark?: boolean;
+  forceWhiteLogo?: boolean;
 };
 
-export function LoginForm({ nextPath: next, tenant, anfraDark = false }: LoginFormProps) {
+export function LoginForm({
+  nextPath: next,
+  tenant,
+  anfraDark = false,
+  forceWhiteLogo = false,
+}: LoginFormProps) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -97,6 +103,7 @@ export function LoginForm({ nextPath: next, tenant, anfraDark = false }: LoginFo
                   width={88}
                   height={88}
                   className="rounded-xl"
+                  forceWhiteLogo={forceWhiteLogo}
                 />
               </div>
             </div>
