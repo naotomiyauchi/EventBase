@@ -74,3 +74,24 @@ export type ProjectAttachment = {
   original_name: string | null;
   created_at: string;
 };
+
+export type TenantChatMessage = {
+  id: string;
+  tenant_id: string;
+  author_id: string;
+  author_display_name: string;
+  body: string;
+  created_at: string;
+};
+
+export type TenantTodo = {
+  id: string;
+  tenant_id: string;
+  owner_id: string;
+  created_by: string;
+  title: string;
+  done: boolean;
+  visibility: "private" | "public";
+  created_at: string;
+  updated_at: string;
+};

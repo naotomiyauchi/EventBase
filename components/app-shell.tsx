@@ -11,7 +11,9 @@ import {
   FileText,
   LayoutDashboard,
   LayoutGrid,
+  ListTodo,
   Menu,
+  MessageSquare,
   Settings,
   User,
   Users,
@@ -33,7 +35,11 @@ const baseGroups = [
   {
     key: "home",
     label: null as string | null,
-    items: [{ href: "/dashboard", label: "ホーム", icon: LayoutDashboard }],
+    items: [
+      { href: "/dashboard", label: "ホーム", icon: LayoutDashboard },
+      { href: "/dashboard/chat", label: "チャット", icon: MessageSquare },
+      { href: "/dashboard/todos", label: "ToDo", icon: ListTodo },
+    ],
   },
   {
     key: "projects",
