@@ -18,6 +18,7 @@ import { StaffSkillFields } from "@/components/staff-skill-fields";
 import { updateStaffSkillsOnly } from "@/app/actions/staff";
 import { STAFF_GOOGLE_EXPORT_MESSAGES } from "@/lib/staff-google-export-errors";
 import { CloudUpload, FileSpreadsheet, FileText } from "lucide-react";
+import { GoogleSheetsOAuthButton } from "@/components/google-sheets-oauth-button";
 
 export default async function StaffDetailPage({
   params,
@@ -86,6 +87,8 @@ export default async function StaffDetailPage({
   }
 
   const defaults = staffRecordToFormDefaults(staff as StaffRow, []);
+  const nextPath =
+    sp.next && sp.next.startsWith("/") ? sp.next : `/api/staff/${staff.id}/export/google`;
 
   const googleSheetsExport = isGoogleSheetsApiConfigured();
 
@@ -130,6 +133,16 @@ export default async function StaffDetailPage({
             {STAFF_GOOGLE_EXPORT_MESSAGES[sp.google_export]}
           </p>
         )}
+      {sp.connect_google && (
+        <div className="rounded-md border border-primary/30 bg-primary/5 px-3 py-3">
+          <p className="mb-2 text-sm">
+            先に Google 連携を完了すると、押下後にスプレッドシートを直接開けます。
+          </p>
+          <GoogleSheetsOAuthButton mode="signIn" nextPath={nextPath} variant="default">
+            Google連携して再実行
+          </GoogleSheetsOAuthButton>
+        </div>
+      )}
 
       <Card>
         <CardHeader>
@@ -143,9 +156,12 @@ export default async function StaffDetailPage({
               selectedPresets={defaults.skillPresetKeys}
               skillsCustomDefault={defaults.skillsCustom}
             />
-            <Button type="submit" size="lg">
+            <button
+              type="submit"
+              className="inline-flex h-10 min-w-36 items-center justify-center rounded-lg border border-white bg-primary px-4 text-sm font-semibold text-white shadow-sm transition-all hover:-translate-y-0.5 hover:border-white hover:bg-primary/90 hover:text-white hover:shadow-md"
+            >
               スキルを保存
-            </Button>
+            </button>
           </form>
         </CardContent>
       </Card>
@@ -177,17 +193,13 @@ export default async function StaffDetailPage({
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-wrap gap-3">
-          {googleSheetsExport && (
-            <a
-              href={`/api/staff/${staff.id}/export/google`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-primary bg-primary px-3 text-sm font-medium text-primary-foreground hover:bg-primary/90"
-            >
-              <CloudUpload className="size-4" />
-              Google スプレッドシートに出力
-            </a>
-          )}
+          <a
+            href={`/api/staff/${staff.id}/export/google`}
+            className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-white bg-primary px-4 text-sm font-medium text-white shadow-sm transition-all hover:-translate-y-0.5 hover:border-white hover:bg-primary/90 hover:text-white hover:shadow-md"
+          >
+            <CloudUpload className="size-4" />
+            Google スプレッドシートに出力
+          </a>
           <a
             href={`/api/staff/${staff.id}/export?format=xlsx`}
             className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-border bg-background px-3 text-sm font-medium hover:bg-muted"

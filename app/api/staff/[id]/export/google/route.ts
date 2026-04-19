@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import type { AppRole } from "@/lib/app-role";
 import { fetchStaffExportBundle } from "@/lib/fetch-staff-export-bundle";
 import { getOAuth2WithRefreshToken } from "@/lib/google-oauth-client";
 import { isGoogleSheetsApiConfigured } from "@/lib/google-sheets-config";
@@ -66,40 +65,17 @@ export async function GET(
       return NextResponse.redirect(spreadsheetUrl);
     } catch (e) {
       console.error("[google export sheet]", e);
-      const { data: prof } = await supabase
-        .from("profiles")
-        .select("role")
-        .eq("id", user.id)
-        .maybeSingle();
-      const role = prof?.role as AppRole | undefined;
-      if (role === "admin" || role === "team_leader") {
-        const u = new URL(
-          "/dashboard/settings/google",
-          request.nextUrl.origin
-        );
-        u.searchParams.set("google", "sheet_failed");
-        return NextResponse.redirect(u.toString());
-      }
       const u = new URL(`/dashboard/staff/${id}`, request.nextUrl.origin);
-      u.searchParams.set("google_export", "sheet");
+      u.searchParams.set("connect_google", "1");
+      u.searchParams.set("next", `/api/staff/${id}/export/google`);
+      u.searchParams.set("google_export", "sheet_failed");
       return NextResponse.redirect(u.toString());
     }
   }
 
-  const { data: prof } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .maybeSingle();
-
-  const role = prof?.role as AppRole | undefined;
-  if (role === "admin" || role === "team_leader") {
-    const u = new URL("/dashboard/settings/google", request.nextUrl.origin);
-    u.searchParams.set("google", "need_login");
-    return NextResponse.redirect(u.toString());
-  }
-
   const u = new URL(`/dashboard/staff/${id}`, request.nextUrl.origin);
+  u.searchParams.set("connect_google", "1");
+  u.searchParams.set("next", `/api/staff/${id}/export/google`);
   u.searchParams.set("google_export", "no_token");
   return NextResponse.redirect(u.toString());
 }

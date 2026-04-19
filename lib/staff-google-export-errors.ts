@@ -7,5 +7,7 @@ export const STAFF_GOOGLE_EXPORT_MESSAGES: Record<string, string> = {
     "Google 連携用のリフレッシュトークンがありません。管理者が Google でログインするか、設定の「Google 連携」からアカウントを紐付けてください。",
   sheet:
     "スプレッドシートの作成に失敗しました。管理者のトークンが無効な可能性があります。設定 → Google 連携から Google を再度紐付けてください。",
+  sheet_failed:
+    "スプレッドシートの作成に失敗しました。Google連携を再実行してから再度お試しください。",
   not_found: "スタッフが見つかりません。",
 };

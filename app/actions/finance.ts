@@ -23,6 +23,7 @@ export async function updateFinanceReceiptAction(formData: FormData) {
   const vendor = String(formData.get("vendor") ?? "").trim() || null;
   const category = String(formData.get("category") ?? "").trim() || "other";
   const payment_method = String(formData.get("payment_method") ?? "").trim() || "other";
+  const project_id = String(formData.get("project_id") ?? "").trim() || null;
   const memo = String(formData.get("memo") ?? "").trim() || null;
   const amountRaw = Number(String(formData.get("amount") ?? "0"));
   const taxRaw = Number(String(formData.get("tax_amount") ?? "0"));
@@ -40,6 +41,7 @@ export async function updateFinanceReceiptAction(formData: FormData) {
       vendor,
       category,
       payment_method,
+      project_id,
       amount,
       tax_amount,
       memo,

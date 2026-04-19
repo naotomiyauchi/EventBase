@@ -98,6 +98,7 @@ export async function createShiftAction(formData: FormData) {
   }
 
   revalidatePath("/dashboard/shifts");
+  revalidatePath("/dashboard/shifts/board");
   revalidatePath("/dashboard/attendance");
   revalidatePath("/dashboard");
   redirect("/dashboard/shifts?created=1");
@@ -116,6 +117,7 @@ export async function sendShiftReminderAction(formData: FormData) {
     .update({ reminder_sent_at: new Date().toISOString() })
     .eq("id", shiftId);
   revalidatePath("/dashboard/shifts");
+  revalidatePath("/dashboard/shifts/board");
   redirect("/dashboard/shifts?reminded=1");
 }
 
@@ -151,6 +153,7 @@ export async function publishDraftShiftsAction(formData: FormData) {
     redirect(`/dashboard/shifts?error=${encodeURIComponent(error.message)}`);
   }
   revalidatePath("/dashboard/shifts");
+  revalidatePath("/dashboard/shifts/board");
   revalidatePath("/dashboard/attendance");
   redirect("/dashboard/shifts?published=1");
 }
@@ -180,6 +183,7 @@ export async function publishSingleShiftAction(formData: FormData) {
   }
 
   revalidatePath("/dashboard/shifts");
+  revalidatePath("/dashboard/shifts/board");
   revalidatePath("/dashboard/attendance");
   redirect("/dashboard/shifts?published_single=1");
 }
@@ -275,6 +279,7 @@ export async function sendLineShiftBroadcastAction(formData: FormData) {
   }
 
   revalidatePath("/dashboard/shifts");
+  revalidatePath("/dashboard/shifts/board");
   redirect(`/dashboard/shifts?line_sent=${sent}`);
 }
 
@@ -354,6 +359,7 @@ export async function sendLineSingleConfirmedShiftAction(formData: FormData) {
   });
 
   revalidatePath("/dashboard/shifts");
+  revalidatePath("/dashboard/shifts/board");
   if (!result.ok) {
     redirect(`/dashboard/shifts?error=${encodeURIComponent(`LINE送信に失敗しました: ${result.responseText}`)}`);
   }
@@ -644,6 +650,7 @@ export async function bulkGenerateShiftsAction(formData: FormData) {
     .map(([k, v]) => `${k}:${v}`)
     .join(", ");
   revalidatePath("/dashboard/shifts");
+  revalidatePath("/dashboard/shifts/board");
   revalidatePath("/dashboard/attendance");
   revalidatePath("/dashboard");
   redirect(
@@ -684,6 +691,7 @@ export async function confirmOwnShiftAction(formData: FormData) {
     .eq("staff_id", staff.id);
   revalidatePath("/dashboard/attendance");
   revalidatePath("/dashboard/shifts");
+  revalidatePath("/dashboard/shifts/board");
   redirect("/dashboard/attendance?confirmed=1");
 }
 
@@ -723,6 +731,7 @@ export async function saveUnavailableDateAction(formData: FormData) {
   }
   revalidatePath("/dashboard/attendance");
   revalidatePath("/dashboard/shifts");
+  revalidatePath("/dashboard/shifts/board");
   redirect("/dashboard/attendance?off_saved=1");
 }
 
@@ -739,5 +748,6 @@ export async function deleteUnavailableDateAction(formData: FormData) {
   await supabase.from("staff_unavailable_dates").delete().eq("id", id);
   revalidatePath("/dashboard/attendance");
   revalidatePath("/dashboard/shifts");
+  revalidatePath("/dashboard/shifts/board");
   redirect("/dashboard/attendance?off_deleted=1");
 }

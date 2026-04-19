@@ -10,6 +10,7 @@ import {
   Clock3,
   FileText,
   LayoutDashboard,
+  LayoutGrid,
   Menu,
   Settings,
   User,
@@ -55,8 +56,7 @@ const baseGroups = [
     label: "シフト",
     items: [
       { href: "/dashboard/my-shifts", label: "マイシフト", icon: CalendarDays },
-      { href: "/dashboard/shifts", label: "シフト管理", icon: CalendarDays },
-      { href: "/dashboard/shift-board", label: "シフト表（管理）", icon: CalendarDays },
+      { href: "/dashboard/shifts", label: "シフト管理", icon: LayoutGrid },
     ],
   },
   {
@@ -116,9 +116,7 @@ export function AppShell({
         items = items.filter((i) => i.href !== "/dashboard/finance");
       }
       if (g.key === "shifts" && !showSettingsNav) {
-        items = items.filter(
-          (i) => i.href !== "/dashboard/shifts" && i.href !== "/dashboard/shift-board"
-        );
+        items = items.filter((i) => i.href !== "/dashboard/shifts");
       }
       return { ...g, items };
     });

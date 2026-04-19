@@ -1,6 +1,9 @@
 import { isSupabaseConfigured } from "@/lib/env";
 import { createClient } from "@/lib/supabase/server";
+import { Building2, Handshake, Store } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import Link from "next/link";
+import { cn } from "@/lib/utils";
 import {
   Card,
   CardContent,
@@ -10,7 +13,6 @@ import {
 } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { createAgency, createCarrier } from "@/app/actions/agencies";
 import { StoresPageClient, type StoreRow } from "@/components/stores-page-client";
 
@@ -25,9 +27,11 @@ export default async function MastersPage({
     store_updated?: string;
     store_deleted?: string;
     store_error?: string;
+    tab?: string;
   }>;
 }) {
   const sp = await searchParams;
+  const activeTab = sp.tab === "agencies" || sp.tab === "stores" ? sp.tab : "carriers";
 
   type Carrier = { id: string; code: string; name: string };
   type Agency = {
@@ -80,23 +84,48 @@ export default async function MastersPage({
 
   return (
     <div className="space-y-6">
-      <div className="rounded-2xl border bg-linear-to-b from-card to-card/60 p-5 shadow-xs">
-        <p className="text-xs font-semibold tracking-[0.18em] text-muted-foreground">
-          MASTER DATA
-        </p>
-        <h1 className="text-xl font-semibold tracking-tight">マスタ</h1>
-        <p className="text-sm text-muted-foreground">
-          キャリア・代理店の階層を管理します。
-        </p>
-      </div>
+      <Card className="rounded-2xl border bg-linear-to-b from-card to-card/60 shadow-xs">
+        <CardHeader className="space-y-4">
+          <div>
+            <p className="text-xs font-semibold tracking-[0.18em] text-muted-foreground">
+              MASTER DATA
+            </p>
+            <h1 className="text-xl font-semibold tracking-tight">マスタ</h1>
+            <p className="text-sm text-muted-foreground">
+              キャリア・代理店の階層を管理します。
+            </p>
+          </div>
+          <nav className="grid w-full max-w-2xl gap-2 rounded-xl border bg-card/70 p-2 sm:grid-cols-3">
+            {[
+              { key: "carriers", label: "イベント会社", icon: Building2 },
+              { key: "agencies", label: "代理店", icon: Handshake },
+              { key: "stores", label: "店舗", icon: Store },
+            ].map((tab) => {
+              const Icon = tab.icon;
+              const isActive = activeTab === tab.key;
+              return (
+                <Link
+                  key={tab.key}
+                  href={`/dashboard/masters?tab=${tab.key}`}
+                  className={cn(
+                    "inline-flex items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium transition-all",
+                    isActive
+                      ? "bg-zinc-900 text-white shadow-sm dark:bg-zinc-100 dark:text-zinc-900"
+                      : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                  )}
+                  aria-current={isActive ? "page" : undefined}
+                >
+                  <Icon className="size-4 shrink-0" />
+                  {tab.label}
+                </Link>
+              );
+            })}
+          </nav>
+        </CardHeader>
+      </Card>
 
-      <Tabs defaultValue="carriers">
-        <TabsList className="grid w-full max-w-2xl grid-cols-3 rounded-xl border bg-card/70 p-1">
-          <TabsTrigger value="carriers">イベント会社</TabsTrigger>
-          <TabsTrigger value="agencies">代理店</TabsTrigger>
-          <TabsTrigger value="stores">店舗</TabsTrigger>
-        </TabsList>
-        <TabsContent value="carriers" className="mt-4">
+      {activeTab === "carriers" && (
+        <div className="mt-4">
           <Card className="border-border/70 shadow-xs">
             <CardHeader>
               <CardTitle className="text-lg">イベント会社（キャリア）</CardTitle>
@@ -148,8 +177,10 @@ export default async function MastersPage({
               </div>
             </CardContent>
           </Card>
-        </TabsContent>
-        <TabsContent value="agencies" className="mt-4">
+        </div>
+      )}
+      {activeTab === "agencies" && (
+        <div className="mt-4">
           <Card className="border-border/70 shadow-xs">
             <CardHeader>
               <CardTitle className="text-lg">代理店を追加</CardTitle>
@@ -214,9 +245,11 @@ export default async function MastersPage({
               ))}
             </div>
           </div>
-        </TabsContent>
+        </div>
+      )}
 
-        <TabsContent value="stores" className="mt-4">
+      {activeTab === "stores" && (
+        <div className="mt-4">
           <Card className="border-border/70 shadow-xs">
             <CardHeader>
               <CardTitle className="text-lg">店舗を追加</CardTitle>
@@ -256,8 +289,8 @@ export default async function MastersPage({
               )}
             </CardContent>
           </Card>
-        </TabsContent>
-      </Tabs>
+        </div>
+      )}
     </div>
   );
 }

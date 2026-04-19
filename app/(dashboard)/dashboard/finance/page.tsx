@@ -10,6 +10,10 @@ import {
   deleteFinanceReceiptAction,
   updateFinanceReceiptAction,
 } from "@/app/actions/finance";
+import {
+  DEFAULT_EXPENSE_CATEGORY,
+  EXPENSE_CATEGORY_OPTIONS,
+} from "@/lib/expense-categories";
 
 function yen(v: number | null | undefined) {
   return `${Math.round(Number(v ?? 0)).toLocaleString("ja-JP")}円`;
@@ -38,7 +42,7 @@ export default async function FinancePage({
       .from("finance_receipts")
       .select(
         `
-        id, expense_date, vendor, category, payment_method, amount, tax_amount, memo, file_path,
+        id, project_id, expense_date, vendor, category, payment_method, amount, tax_amount, memo, file_path,
         projects ( title ),
         agencies ( name )
       `
@@ -54,6 +58,7 @@ export default async function FinancePage({
 
   const rows = (receipts ?? []) as {
     id: string;
+    project_id: string | null;
     expense_date: string;
     vendor: string | null;
     category: string;
@@ -317,11 +322,29 @@ export default async function FinancePage({
                               <option value="card">card</option>
                               <option value="other">other</option>
                             </select>
-                            <input
-                              name="category"
-                              defaultValue={r.category ?? "other"}
+                            <select
+                              name="project_id"
+                              defaultValue={r.project_id ?? ""}
                               className="h-9 rounded-md border border-input bg-background px-3 text-sm sm:col-span-2"
-                            />
+                            >
+                              <option value="">案件未紐付け</option>
+                              {(projects ?? []).map((p) => (
+                                <option key={p.id} value={p.id}>
+                                  {p.title}
+                                </option>
+                              ))}
+                            </select>
+                            <select
+                              name="category"
+                              defaultValue={r.category ?? DEFAULT_EXPENSE_CATEGORY}
+                              className="h-9 rounded-md border border-input bg-background px-3 text-sm sm:col-span-2"
+                            >
+                              {EXPENSE_CATEGORY_OPTIONS.map((c) => (
+                                <option key={c.value} value={c.value}>
+                                  {c.label}
+                                </option>
+                              ))}
+                            </select>
                             <textarea
                               name="memo"
                               defaultValue={r.memo ?? ""}

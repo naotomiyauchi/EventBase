@@ -7,6 +7,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  DEFAULT_EXPENSE_CATEGORY,
+  EXPENSE_CATEGORY_OPTIONS,
+} from "@/lib/expense-categories";
 
 type Option = { id: string; name: string };
 
@@ -15,15 +19,6 @@ type Props = {
   projects: Option[];
   agencies: Option[];
 };
-
-const CATEGORY_OPTIONS = [
-  { value: "transport", label: "交通費" },
-  { value: "parking", label: "駐車場代" },
-  { value: "supplies", label: "備品" },
-  { value: "meal", label: "飲食" },
-  { value: "lodging", label: "宿泊" },
-  { value: "other", label: "その他" },
-];
 
 const PAYMENT_OPTIONS = [
   { value: "cash", label: "現金" },
@@ -67,7 +62,7 @@ export function ReceiptBoxClient({ tenantSlug, projects, agencies }: Props) {
     const payload = {
       expense_date: String(fd.get("expense_date") ?? ""),
       vendor: String(fd.get("vendor") ?? "").trim() || null,
-      category: String(fd.get("category") ?? "other"),
+      category: String(fd.get("category") ?? DEFAULT_EXPENSE_CATEGORY),
       payment_method: String(fd.get("payment_method") ?? "cash"),
       amount: Number.isFinite(amount) ? Math.max(0, amount) : 0,
       tax_amount: Number.isFinite(taxAmount) ? Math.max(0, taxAmount) : 0,
@@ -113,10 +108,10 @@ export function ReceiptBoxClient({ tenantSlug, projects, agencies }: Props) {
           <select
             id="category"
             name="category"
-            defaultValue="other"
+            defaultValue={DEFAULT_EXPENSE_CATEGORY}
             className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm"
           >
-            {CATEGORY_OPTIONS.map((c) => (
+            {EXPENSE_CATEGORY_OPTIONS.map((c) => (
               <option key={c.value} value={c.value}>
                 {c.label}
               </option>

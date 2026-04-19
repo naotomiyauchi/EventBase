@@ -1,11 +1,10 @@
 /** スキルプリセット（チェックボックス用）。自由入力とマージして保存 */
 export const STAFF_SKILL_PRESETS = [
-  "クロージング可",
-  "受付のみ",
-  "MC可",
-  "物販",
-  "誘導",
-  "体験ブース",
+  "キャッチ",
+  "興味ずけ",
+  "クローズ",
+  "受付",
+  "デュレクター",
 ] as const;
 
 export type StaffSkillPreset = (typeof STAFF_SKILL_PRESETS)[number];

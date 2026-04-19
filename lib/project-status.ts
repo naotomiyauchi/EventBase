@@ -2,6 +2,7 @@ import type { ProjectStatus } from "@/lib/types/database";
 
 export const PROJECT_STATUS_LABELS: Record<ProjectStatus, string> = {
   proposal: "提案中",
+  estimate: "見積もり",
   ordered: "受注",
   staffing: "スタッフ手配中",
   in_progress: "実施中",
@@ -11,6 +12,7 @@ export const PROJECT_STATUS_LABELS: Record<ProjectStatus, string> = {
 
 export const PROJECT_STATUS_ORDER: ProjectStatus[] = [
   "proposal",
+  "estimate",
   "ordered",
   "staffing",
   "in_progress",

@@ -23,14 +23,12 @@ import { Separator } from "@/components/ui/separator";
 import { ProjectFileUpload } from "@/components/project-file-upload";
 import { deleteProject, updateProject } from "@/app/actions/projects";
 
-function toDatetimeLocal(value: string | null): string {
+function toTimeOnly(value: string | null): string {
   if (!value) return "";
   const d = new Date(value);
   if (Number.isNaN(d.getTime())) return "";
   const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(
-    d.getHours()
-  )}:${pad(d.getMinutes())}`;
+  return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
 export default async function ProjectDetailPage({
@@ -60,47 +58,51 @@ export default async function ProjectDetailPage({
   }
 
   const supabase = await createClient();
-  const { data: project, error } = await supabase
-    .from("projects")
-    .select(
-      `
-      id,
-      title,
-      status,
-      store_id,
-      overview,
-      event_period_start,
-      event_period_end,
-      event_start_at,
-      event_end_at,
-      event_location,
-      event_location_map_url,
-      event_contact_name,
-      event_contact_phone,
-      event_notes,
-      related_entities,
-      direct_supervisor_entity,
-      billing_target_entity,
-      compensation_type,
-      brokerage_rate,
-      brokerage_notes,
-      stores (
+  const [{ data: project, error }, { data: staffOptions }] = await Promise.all([
+    supabase
+      .from("projects")
+      .select(
+        `
         id,
-        name,
-        address,
-        access_notes,
-        contact_name,
-        contact_phone,
-        entry_rules,
-        agencies (
+        title,
+        status,
+        store_id,
+        assigned_staff_ids,
+        overview,
+        event_period_start,
+        event_period_end,
+        event_start_at,
+        event_end_at,
+        event_location,
+        event_location_map_url,
+        event_contact_name,
+        event_contact_phone,
+        event_notes,
+        related_entities,
+        direct_supervisor_entity,
+        billing_target_entity,
+        compensation_type,
+        brokerage_rate,
+        brokerage_notes,
+        stores (
+          id,
           name,
-          carriers ( name )
+          address,
+          access_notes,
+          contact_name,
+          contact_phone,
+          entry_rules,
+          agencies (
+            name,
+            carriers ( name )
+          )
         )
+      `
       )
-    `
-    )
-    .eq("id", id)
-    .maybeSingle();
+      .eq("id", id)
+      .maybeSingle(),
+    supabase.from("staff").select("id, name").order("name"),
+  ]);
 
   if (error || !project) {
     notFound();
@@ -127,6 +129,8 @@ export default async function ProjectDetailPage({
   } | null;
 
   const status = project.status as ProjectStatus;
+  const assignedStaffIds = ((project as { assigned_staff_ids?: string[] | null }).assigned_staff_ids ??
+    []) as string[];
 
   return (
     <div className="space-y-6">
@@ -167,6 +171,25 @@ export default async function ProjectDetailPage({
             <div className="space-y-2">
               <Label htmlFor="overview">概要（説明）</Label>
               <Textarea id="overview" name="overview" rows={3} defaultValue={project.overview ?? ""} />
+            </div>
+            <div className="space-y-2">
+              <Label>担当スタッフ</Label>
+              <div className="grid gap-2 rounded-xl border bg-card/40 p-3 sm:grid-cols-2">
+                {(staffOptions ?? []).map((staff) => (
+                  <label
+                    key={staff.id}
+                    className="flex items-center gap-2 rounded-lg border bg-background px-3 py-2 text-sm"
+                  >
+                    <input
+                      type="checkbox"
+                      name="assigned_staff_ids"
+                      value={staff.id}
+                      defaultChecked={assignedStaffIds.includes(staff.id)}
+                    />
+                    <span>{staff.name}</span>
+                  </label>
+                ))}
+              </div>
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
@@ -212,41 +235,30 @@ export default async function ProjectDetailPage({
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="event_start_at">日時（開始）</Label>
+                <Label htmlFor="event_start_time">稼働開始時刻</Label>
                 <Input
-                  id="event_start_at"
-                  name="event_start_at"
-                  type="datetime-local"
-                  defaultValue={toDatetimeLocal(project.event_start_at)}
+                  id="event_start_time"
+                  name="event_start_time"
+                  type="time"
+                  defaultValue={toTimeOnly(project.event_start_at)}
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="event_end_at">日時（終了）</Label>
+                <Label htmlFor="event_end_time">稼働終了時刻</Label>
                 <Input
-                  id="event_end_at"
-                  name="event_end_at"
-                  type="datetime-local"
-                  defaultValue={toDatetimeLocal(project.event_end_at)}
+                  id="event_end_time"
+                  name="event_end_time"
+                  type="time"
+                  defaultValue={toTimeOnly(project.event_end_at)}
                 />
               </div>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="event_location">場所</Label>
-              <Input
-                id="event_location"
-                name="event_location"
-                defaultValue={project.event_location ?? ""}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="event_location_map_url">GoogleマップURL</Label>
-              <Input
-                id="event_location_map_url"
-                name="event_location_map_url"
-                type="url"
-                defaultValue={project.event_location_map_url ?? ""}
-              />
-            </div>
+            <input type="hidden" name="event_location" value={project.event_location ?? ""} />
+            <input
+              type="hidden"
+              name="event_location_map_url"
+              value={project.event_location_map_url ?? ""}
+            />
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="event_contact_name">イベント場所の担当者</Label>

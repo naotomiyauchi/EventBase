@@ -1,5 +1,6 @@
 export type ProjectStatus =
   | "proposal"
+  | "estimate"
   | "ordered"
   | "staffing"
   | "in_progress"
@@ -36,6 +37,7 @@ export type Store = {
 export type Project = {
   id: string;
   store_id: string | null;
+  assigned_staff_ids?: string[];
   title: string;
   status: ProjectStatus;
   start_at: string | null;

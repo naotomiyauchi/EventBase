@@ -159,67 +159,49 @@ export async function checkoutShiftWithReportAction(formData: FormData) {
       { onConflict: "shift_id" }
     );
 
-  const transport = Math.max(0, optNum(formData, "expense_transport") ?? 0);
-  const parking = Math.max(0, optNum(formData, "expense_parking") ?? 0);
-  const supplies = Math.max(0, optNum(formData, "expense_supplies") ?? 0);
-  const other = Math.max(0, optNum(formData, "expense_other") ?? 0);
-  const receiptUrl = String(formData.get("receipt_url") ?? "").trim();
-  const expenseNote = String(formData.get("expense_note") ?? "").trim();
-  const totalExpense = transport + parking + supplies + other;
-  if (totalExpense > 0 && !receiptUrl) {
-    redirect(`${ATTENDANCE_PATH}?error=${encodeURIComponent("経費入力時はレシートURLが必須です")}`);
-  }
-
-  await supabase.from("shift_expenses").delete().eq("shift_id", shiftId);
-  const inserts = [
-    transport > 0
-      ? {
-          shift_id: shiftId,
-          expense_type: "transport",
-          amount: transport,
-          receipt_url: receiptUrl || null,
-          note: expenseNote || null,
-        }
-      : null,
-    parking > 0
-      ? {
-          shift_id: shiftId,
-          expense_type: "parking",
-          amount: parking,
-          receipt_url: receiptUrl || null,
-          note: expenseNote || null,
-        }
-      : null,
-    supplies > 0
-      ? {
-          shift_id: shiftId,
-          expense_type: "supplies",
-          amount: supplies,
-          receipt_url: receiptUrl || null,
-          note: expenseNote || null,
-        }
-      : null,
-    other > 0
-      ? {
-          shift_id: shiftId,
-          expense_type: "other",
-          amount: other,
-          receipt_url: receiptUrl || null,
-          note: expenseNote || null,
-        }
-      : null,
-  ].filter(Boolean) as {
-    shift_id: string;
-    expense_type: "transport" | "parking" | "supplies" | "other";
-    amount: number;
-    receipt_url: string | null;
-    note: string | null;
-  }[];
-  if (inserts.length > 0) {
-    await supabase.from("shift_expenses").insert(inserts);
-  }
-
   revalidatePath(ATTENDANCE_PATH);
   revalidatePath("/dashboard");
   redirect(`${ATTENDANCE_PATH}?reported=1`);
+}
+
+export async function linkReceiptToShiftAction(formData: FormData) {
+  const { supabase, staffId } = await getCurrentStaffIdOrRedirect();
+  const shiftId = String(formData.get("shift_id") ?? "").trim();
+  const receiptId = String(formData.get("receipt_id") ?? "").trim();
+  if (!shiftId || !receiptId) {
+    redirect(`${ATTENDANCE_PATH}?error=${encodeURIComponent("領収書の指定が不正です")}`);
+  }
+
+  const { data: shift } = await supabase
+    .from("project_shifts")
+    .select("id, staff_id, project_id")
+    .eq("id", shiftId)
+    .maybeSingle();
+  if (!shift || shift.staff_id !== staffId) {
+    redirect(`${ATTENDANCE_PATH}?error=${encodeURIComponent("対象シフトが見つかりません")}`);
+  }
+
+  const { data: receipt } = await supabase
+    .from("finance_receipts")
+    .select("id, staff_id, shift_id")
+    .eq("id", receiptId)
+    .maybeSingle();
+  if (!receipt || receipt.staff_id !== staffId) {
+    redirect(`${ATTENDANCE_PATH}?error=${encodeURIComponent("対象領収書が見つかりません")}`);
+  }
+
+  const { error } = await supabase
+    .from("finance_receipts")
+    .update({
+      shift_id: shiftId,
+      project_id: shift.project_id ?? null,
+    })
+    .eq("id", receiptId);
+  if (error) {
+    redirect(`${ATTENDANCE_PATH}?error=${encodeURIComponent(error.message)}`);
+  }
+
+  revalidatePath(ATTENDANCE_PATH);
+  revalidatePath("/dashboard/finance");
+  redirect(`${ATTENDANCE_PATH}?receipt_linked=1`);
 }

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { List, Plus, MapPin } from "lucide-react";
 import { isSupabaseConfigured } from "@/lib/env";
 import { createClient } from "@/lib/supabase/server";
 import { PROJECT_STATUS_LABELS } from "@/lib/project-status";
@@ -11,10 +12,10 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
 import { deleteProject, updateProjectStatus } from "@/app/actions/projects";
 import { PROJECT_STATUS_ORDER } from "@/lib/project-status";
 import { StoresPageClient, type StoreRow } from "@/components/stores-page-client";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ProjectCreateForm } from "@/components/project-create-form";
 
 type CarrierOption = { id: string; name: string };
@@ -24,20 +25,25 @@ type AgencyOption = {
   carriers: { name: string } | null;
   agency_carriers: { carrier_id: string }[] | null;
 };
+type StaffOption = { id: string; name: string };
 
 export default async function ProjectsPage({
   searchParams,
 }: {
   searchParams: Promise<{
+    created?: string;
     error?: string;
     deleted?: string;
     event_created?: string;
     event_updated?: string;
     event_deleted?: string;
     event_error?: string;
+    tab?: string;
   }>;
 }) {
   const sp = await searchParams;
+  const activeTab =
+    sp.tab === "project-create" || sp.tab === "event-create" ? sp.tab : "projects-list";
   const projects: {
     id: string;
     title: string;
@@ -51,10 +57,11 @@ export default async function ProjectsPage({
   let storeRows: StoreRow[] = [];
   let agencies: AgencyOption[] = [];
   let carriers: CarrierOption[] = [];
+  let staffs: StaffOption[] = [];
 
   if (isSupabaseConfigured()) {
     const supabase = await createClient();
-    const [projRes, storeMasterRes, agencyRes, carrierRes] = await Promise.all([
+    const [projRes, storeMasterRes, agencyRes, carrierRes, staffRes] = await Promise.all([
       supabase
         .from("projects")
         .select(
@@ -97,6 +104,7 @@ export default async function ProjectsPage({
         .select("id, name, carriers ( name ), agency_carriers ( carrier_id )")
         .order("name"),
       supabase.from("carriers").select("id, name").order("name"),
+      supabase.from("staff").select("id, name").order("name"),
     ]);
     projects.push(
       ...((projRes.data ?? []) as unknown as (typeof projects)[number][])
@@ -104,23 +112,19 @@ export default async function ProjectsPage({
     storeRows = (storeMasterRes.data ?? []) as unknown as StoreRow[];
     agencies = (agencyRes.data ?? []) as unknown as AgencyOption[];
     carriers = (carrierRes.data ?? []) as CarrierOption[];
+    staffs = (staffRes.data ?? []) as StaffOption[];
   }
 
   return (
     <div className="space-y-6">
-      <div className="rounded-2xl border bg-linear-to-b from-card to-card/60 p-5 shadow-xs">
-        <p className="text-xs font-semibold tracking-[0.18em] text-muted-foreground">
-          PROJECT STUDIO
-        </p>
-        <h1 className="text-xl font-semibold tracking-tight">案件情報</h1>
-        <p className="text-sm text-muted-foreground">
-          案件一覧・案件追加・イベント場所追加を1画面で管理します。
-        </p>
-      </div>
-
       {sp.error && (
         <p className="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
           保存に失敗しました: {decodeURIComponent(sp.error)}
+        </p>
+      )}
+      {sp.created === "1" && (
+        <p className="rounded-lg border border-green-600/30 bg-green-600/10 px-3 py-2 text-sm text-green-700 dark:text-green-300">
+          案件を登録しました。
         </p>
       )}
       {sp.deleted === "1" && (
@@ -149,14 +153,47 @@ export default async function ProjectsPage({
         </p>
       )}
 
-      <Tabs defaultValue="projects-list">
-        <TabsList className="grid w-full max-w-xl grid-cols-3 rounded-xl border bg-card/70 p-1">
-          <TabsTrigger value="projects-list">案件一覧</TabsTrigger>
-          <TabsTrigger value="project-create">案件の追加</TabsTrigger>
-          <TabsTrigger value="event-create">イベント場所の追加</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="projects-list" className="mt-4">
+      <Card className="rounded-2xl border bg-linear-to-b from-card to-card/60 shadow-xs">
+        <CardHeader className="space-y-4">
+          <div>
+            <p className="text-xs font-semibold tracking-[0.18em] text-muted-foreground">
+              PROJECT STUDIO
+            </p>
+            <h1 className="text-xl font-semibold tracking-tight">案件情報</h1>
+            <p className="text-sm text-muted-foreground">
+              案件一覧・案件追加・イベント場所追加を1画面で管理します。
+            </p>
+          </div>
+          <nav className="grid w-full max-w-xl gap-2 rounded-xl border bg-card/70 p-2 sm:grid-cols-3">
+            {[
+              { key: "projects-list", label: "案件一覧", icon: List },
+              { key: "project-create", label: "案件の追加", icon: Plus },
+              { key: "event-create", label: "イベント場所の追加", icon: MapPin },
+            ].map((tab) => {
+              const Icon = tab.icon;
+              const isActive = activeTab === tab.key;
+              return (
+                <Link
+                  key={tab.key}
+                  href={`/dashboard/projects?tab=${tab.key}`}
+                  className={cn(
+                    "inline-flex items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium transition-all",
+                    isActive
+                      ? "bg-zinc-900 text-white shadow-sm dark:bg-zinc-100 dark:text-zinc-900"
+                      : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                  )}
+                  aria-current={isActive ? "page" : undefined}
+                >
+                  <Icon className="size-4 shrink-0" />
+                  {tab.label}
+                </Link>
+              );
+            })}
+          </nav>
+        </CardHeader>
+      </Card>
+      {activeTab === "projects-list" && (
+        <div className="mt-4">
           <Card className="border-border/70 shadow-xs">
             <CardHeader>
               <CardTitle className="text-lg">案件一覧（編集・削除）</CardTitle>
@@ -232,9 +269,11 @@ export default async function ProjectsPage({
               </div>
             </CardContent>
           </Card>
-        </TabsContent>
+        </div>
+      )}
 
-        <TabsContent value="project-create" className="mt-4">
+      {activeTab === "project-create" && (
+        <div className="mt-4">
           <Card className="border-border/70 shadow-xs">
             <CardHeader>
               <CardTitle className="text-lg">案件の追加</CardTitle>
@@ -249,6 +288,7 @@ export default async function ProjectsPage({
                   name: s.name,
                   agency_id: s.agency_id,
                 }))}
+                staffs={staffs}
                 carriers={carriers}
                 agencies={agencies.map((a) => ({
                   id: a.id,
@@ -260,9 +300,11 @@ export default async function ProjectsPage({
               />
             </CardContent>
           </Card>
-        </TabsContent>
+        </div>
+      )}
 
-        <TabsContent value="event-create" className="mt-4">
+      {activeTab === "event-create" && (
+        <div className="mt-4">
           <Card className="border-border/70 shadow-xs">
             <CardHeader>
               <CardTitle className="text-lg">イベント場所の追加</CardTitle>
@@ -287,8 +329,9 @@ export default async function ProjectsPage({
               )}
             </CardContent>
           </Card>
-        </TabsContent>
-      </Tabs>
+        </div>
+      )}
+
     </div>
   );
 }

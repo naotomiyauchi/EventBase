@@ -5,7 +5,6 @@ import { APP_ROLE_LABELS, isAppManagerRole } from "@/lib/app-role";
 import { findAuthUserByEmail } from "@/lib/auth-admin-lookup";
 import { getCurrentProfile } from "@/lib/auth-profile";
 import { isSupabaseConfigured } from "@/lib/env";
-import { isGoogleSheetsApiConfigured } from "@/lib/google-sheets-config";
 import { createClient } from "@/lib/supabase/server";
 import {
   staffRecordToFormDefaults,
@@ -37,6 +36,7 @@ import {
 } from "@/app/actions/staff";
 import { STAFF_GOOGLE_EXPORT_MESSAGES } from "@/lib/staff-google-export-errors";
 import { CloudUpload, FileSpreadsheet, FileText } from "lucide-react";
+import { GoogleSheetsOAuthButton } from "@/components/google-sheets-oauth-button";
 
 export default async function SettingsStaffDetailPage({
   params,
@@ -52,6 +52,8 @@ export default async function SettingsStaffDetailPage({
     google_notice_failed?: string;
     error?: string;
     google_export?: string;
+    connect_google?: string;
+    next?: string;
     password_reset?: string;
   }>;
 }) {
@@ -146,8 +148,8 @@ export default async function SettingsStaffDetailPage({
     staff as StaffRow,
     (whRows ?? []) as StaffHistoryRow[]
   );
-
-  const googleSheetsExport = isGoogleSheetsApiConfigured();
+  const nextPath =
+    sp.next && sp.next.startsWith("/") ? sp.next : `/api/staff/${staff.id}/export/google`;
 
   const [{ data: stores }, { data: ngRows }] = await Promise.all([
     supabase
@@ -274,6 +276,16 @@ export default async function SettingsStaffDetailPage({
             {STAFF_GOOGLE_EXPORT_MESSAGES[sp.google_export]}
           </p>
         )}
+      {sp.connect_google && (
+        <div className="rounded-md border border-primary/30 bg-primary/5 px-3 py-3">
+          <p className="mb-2 text-sm">
+            先に Google 連携を完了すると、押下後にスプレッドシートを直接開けます。
+          </p>
+          <GoogleSheetsOAuthButton mode="signIn" nextPath={nextPath} variant="default">
+            Google連携して再実行
+          </GoogleSheetsOAuthButton>
+        </div>
+      )}
 
       {linkedUserId && linkedAppRole && (
         <Card>
@@ -343,40 +355,25 @@ export default async function SettingsStaffDetailPage({
         <CardHeader>
           <CardTitle className="text-base">出力</CardTitle>
           <CardDescription>
-            {googleSheetsExport ? (
-              <>
-                <span className="block">
-                  Google
-                  ドライブに新規スプレッドシートを作成して開きます。Supabase の
-                  Google ログインで保存したリフレッシュトークンを使います（管理者・チームリーダーは設定の「Google
-                  連携」からも再紐付けできます）。
-                </span>
-                <span className="mt-1 block text-muted-foreground">
-                  ファイルを端末に落とすだけなら Excel / PDF も利用できます。
-                </span>
-              </>
-            ) : (
-              <>
-                Excel（.xlsx）・PDF
-                をダウンロードできます。Google
-                スプレッドシートへ自動作成するには、管理者が Google Cloud
-                の OAuth クライアントを環境変数に設定してください。
-              </>
-            )}
+            <span className="block">
+              Google
+              ドライブに新規スプレッドシートを作成して開きます。Supabase の
+              Google ログインで保存したリフレッシュトークンを使います（管理者・チームリーダーは設定の「Google
+              連携」からも再紐付けできます）。
+            </span>
+            <span className="mt-1 block text-muted-foreground">
+              ファイルを端末に落とすだけなら Excel / PDF も利用できます。
+            </span>
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-wrap gap-3">
-          {googleSheetsExport && (
-            <a
-              href={`/api/staff/${staff.id}/export/google`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-primary bg-primary px-3 text-sm font-medium text-primary-foreground hover:bg-primary/90"
-            >
-              <CloudUpload className="size-4" />
-              Google スプレッドシートに出力
-            </a>
-          )}
+          <a
+            href={`/api/staff/${staff.id}/export/google`}
+            className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-white bg-primary px-4 text-sm font-medium text-white shadow-sm transition-all hover:-translate-y-0.5 hover:border-white hover:bg-primary/90 hover:text-white hover:shadow-md"
+          >
+            <CloudUpload className="size-4" />
+            Google スプレッドシートに出力
+          </a>
           <a
             href={`/api/staff/${staff.id}/export?format=xlsx`}
             className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-border bg-background px-3 text-sm font-medium hover:bg-muted"

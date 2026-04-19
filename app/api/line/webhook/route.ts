@@ -467,6 +467,7 @@ export async function POST(req: Request) {
                 }).format(new Date());
                 await admin.from("finance_receipts").insert({
                   tenant_id: tenantId,
+                  staff_id: linkRow.staff_id,
                   expense_date: ocr.inferredExpenseDate ?? today,
                   category: ocr.inferredCategory ?? "other",
                   payment_method: ocr.inferredPaymentMethod,

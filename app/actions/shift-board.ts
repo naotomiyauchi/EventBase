@@ -37,19 +37,8 @@ export async function setShiftBoardCellAction(formData: FormData) {
       .eq("staff_id", staffId)
       .eq("shift_date", shiftDate);
     revalidatePath("/dashboard/shift-board");
+    revalidatePath("/dashboard/shifts/board");
     revalidatePath("/dashboard");
-    return;
-  }
-
-  const { data: ngRow } = await supabase
-    .from("staff_unavailable_dates")
-    .select("id")
-    .eq("staff_id", staffId)
-    .eq("unavailable_date", shiftDate)
-    .maybeSingle();
-  if (ngRow?.id) {
-    // 希望休は shift-board 上で表示・ブロックし、誤って保存されないようサーバー側でも防ぐ
-    revalidatePath("/dashboard/shift-board");
     return;
   }
 
@@ -72,6 +61,7 @@ export async function setShiftBoardCellAction(formData: FormData) {
   );
 
   revalidatePath("/dashboard/shift-board");
+  revalidatePath("/dashboard/shifts/board");
   revalidatePath("/dashboard");
 }
 
