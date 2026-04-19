@@ -28,7 +28,7 @@ function jpTime(value: string | null): string {
 export default async function LineSettingsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; code_sent?: string }>;
+  searchParams: Promise<{ error?: string; code_sent?: string; warn?: string }>;
 }) {
   const sp = await searchParams;
   const supabase = await createClient();
@@ -76,6 +76,16 @@ export default async function LineSettingsPage({
       ) : null}
       {sp.code_sent ? (
         <p className="text-sm text-green-600 dark:text-green-400">連携コードを生成しました。</p>
+      ) : null}
+      {sp.warn === "smtp_not_configured" ? (
+        <p className="text-sm text-amber-600 dark:text-amber-400">
+          メール設定が未完了のため、コードは発行済みですがメール送信はスキップしました。
+        </p>
+      ) : null}
+      {sp.warn === "mail_send_failed" ? (
+        <p className="text-sm text-amber-600 dark:text-amber-400">
+          コードは発行済みですが、メール送信に失敗しました。履歴からコードを確認できます。
+        </p>
       ) : null}
 
       <details className="rounded-2xl border bg-card/70 shadow-xs">

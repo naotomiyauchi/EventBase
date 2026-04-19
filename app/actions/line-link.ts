@@ -48,9 +48,6 @@ export async function sendLineLinkCodeAction(formData: FormData) {
   }
 
   const from = process.env.LINE_LINK_MAIL_FROM || process.env.BILLING_MAIL_FROM;
-  if (!isSmtpConfigured() || !from) {
-    redirect("/dashboard/settings/line?error=smtp_not_configured");
-  }
 
   const subject = "【EventBase】LINE連携コード";
   const body = [
@@ -64,6 +61,11 @@ export async function sendLineLinkCodeAction(formData: FormData) {
     "有効期限: 30分",
   ].join("\n");
 
+  // コード発行を主目的にし、メール失敗は警告として扱う。
+  if (!isSmtpConfigured() || !from) {
+    revalidatePath("/dashboard/settings/line");
+    redirect("/dashboard/settings/line?code_sent=1&warn=smtp_not_configured");
+  }
   try {
     await sendMailViaSmtp({
       from,
@@ -71,12 +73,9 @@ export async function sendLineLinkCodeAction(formData: FormData) {
       subject,
       text: body,
     });
-  } catch (e) {
-    redirect(
-      `/dashboard/settings/line?error=${encodeURIComponent(
-        e instanceof Error ? `mail_send_failed:${e.message}` : "mail_send_failed"
-      )}`
-    );
+  } catch {
+    revalidatePath("/dashboard/settings/line");
+    redirect("/dashboard/settings/line?code_sent=1&warn=mail_send_failed");
   }
 
   revalidatePath("/dashboard/settings/line");
